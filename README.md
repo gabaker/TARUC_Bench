@@ -5,6 +5,7 @@ Contact: gmbaker@sandia.gov
          gavin.m.baker@gmail.com
 
 Acknowledgements:
+
    Craig Ulmer, PhD. (Sandia)
    Jerry Friesen (Sandia)
    Chris Lupo, PhD. (Cal Poly)
