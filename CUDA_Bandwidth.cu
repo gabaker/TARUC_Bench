@@ -6,7 +6,9 @@
 #include<iostream>
 #include<stdio.h>
 #include<string>
-
+#include<vector>
+#include<time.h>
+#include<chrono>
 //OpenMP threading includes
 #include<omp.h>
 
@@ -22,6 +24,7 @@ typedef struct TestParams {
 
    //Overhead memory test for allocation and deallocation of Host and Device memory
    bool runMemoryOverheadTest;
+   bool runAllDevices;
    long rangeMemOverhead[3]; //min, max and step size (in bytes)
  
    //Device-Peer PCIe Baseline bandwidth test
@@ -108,36 +111,6 @@ void RunBandwidthTestSuite(int argc, char **argv) {
       
       TestMemoryOverhead(props, nDevices, params);
    
-/*      cudaEvent_t start, stop; 
-      cudaEventCreate(&start);
-      cudaEventCreate(&stop);
-
-      ResetDevices(nDevices);
-
-      char *blockPtr = NULL;
-      float eTime = 0;
-      
-      for (int chunkSize = 2; chunkSize <= 1024; chunkSize += 2) {
-         cudaEventRecord(start);
-         cudaMalloc((void **) &blockPtr, chunkSize);
-         cudaEventRecord(stop);
-
-         cudaEventSynchronize(stop);
-         
-         cudaEventElapsedTime(&eTime, start, stop);
-
-         printf("%f\n", eTime);
-   
-         cudaFree(blockPtr);      
-
-      }
-
-      cudaEventDestroy(start);
-      cudaEventDestroy(stop);
-
-*/
-
-
    }
 
    if (params.runHostDeviceBandwidthTest != false) {
@@ -167,45 +140,123 @@ void RunBandwidthTestSuite(int argc, char **argv) {
 }
 
 void TestMemoryOverhead(cudaDeviceProp *props, int dCount, TestParams &params) {
-      cudaEvent_t start, stop; 
-      cudaEventCreate(&start);
-      cudaEventCreate(&stop);
+      //Create CUDA runtime events used to time device operations
+      cudaEvent_t start_e, stop_e; 
+      cudaEventCreate(&start_e);
+      cudaEventCreate(&stop_e);
 
-      ResetDevices(dCount);
-
-      char *blockPtr = NULL;
+      //TODO: There is a problem with this function call on my test system; causes segfault.
+      //ResetDevices(dCount);       
+      
+      char *deviceMem = NULL;
+      char *hostUnPinnedMem = NULL;
+      char *hostPinnedMem = NULL;
       float eTime = 0.0;
- 
-      //for (int currDev = 0; currDev < dCount; currDev++) {
-         //printf("Running device %d (ID) of %d (total)\n", 0, dCount);
-         //cudaSetDevice(1);
 
-     
-         //for ( long chunkSize = params.rangeMemOverhead[0]; 
-         //      chunkSize <= params.rangeMemOverhead[1]; 
-         //      chunkSize += params.rangeMemOverhead[2]) {
-         for (int chunkSize = 0; chunkSize <= 100000; chunkSize += 25000) {
-            cudaEventRecord(start);
-            cudaMalloc((void **) &blockPtr, chunkSize);
-            cudaEventRecord(stop);
+      //Memory overhead test will run for each device utilizing the cudaMalloc and cudaFree functions
+      //on the first iteration of the look, assuming there is atleast one device, the host will run the 
+      //pinned and un-pinned memory tests
+
+      //Only run overhead device cases on a single device
+      //default to device 0
+      if (!params.runAllDevices)
+         dCount = 1;
+
+      for (int currDev = 0; currDev < dCount; currDev++) {
+         printf("Running device %d (ID) of %d (total)\n", 0, dCount);
+         cudaSetDevice(currDev);
+
+         for ( long chunkSize = params.rangeMemOverhead[0]; 
+               chunkSize <= params.rangeMemOverhead[1]; 
+               chunkSize += params.rangeMemOverhead[2]) {
+         //for (int chunkSize = 0; chunkSize <= 1000; chunkSize += 100) {
+
+            printf("Blocksize: %ld\n", chunkSize);
+
+            //Host test only runs the first time
+            if (currDev == 0) {
+               //CASE 1: Allocation of host memory
+
+               //Pinned
+               cudaEventRecord(start_e);
+               cudaMallocHost((void **) &hostPinnedMem, chunkSize);
+               cudaEventRecord(stop_e);
+
+               cudaEventSynchronize(stop_e);
+         
+               cudaEventElapsedTime(&eTime, start_e, stop_e);
+
+               printf("Host Alloc Pinned: %lf\n", eTime);
+ 
+               //Unpinned
+
+               auto start_t = std::chrono::high_resolution_clock::now();
+               hostUnPinnedMem = (char *) malloc(chunkSize);
+               auto stop_t = std::chrono::high_resolution_clock::now();
+
+               //printf("Host Alloc Unpinned%f\n",std::chrono::duration_cast<std::chrono::microseconds>(start_t, end_t));
+
+               //CASE 2: Deallocation of host Memory
+               
+               //Pinned
+               cudaEventRecord(start);
+               cudaFreeHost((void *) hostPinnedMem);
+               cudaEventRecord(stop);
+
+               cudaEventSynchronize(stop);
+         
+               cudaEventElapsedTime(&eTime, start, stop);
+
+               //printf("%lf\n", eTime);
+            
+               //Unpinned
+               
+               start_t = std::chrono::high_resolution_clock::now();
+               free(hostUnpinnedMem);
+               stop_t = std::chrono::high_resolution_clock::now();
+               
+               //printf("Host Free Unpinned"); 
+
+            }
+
+            //CASE 3: Allocation of device memory
+            cudaEventRecord(start_e);
+            cudaFree(deviceMem); 
+            cudaEventRecord(stop_e);
 
             cudaEventSynchronize(stop);
          
             cudaEventElapsedTime(&eTime, start, stop);
 
-            printf("%lf\n", eTime);
-   
-            cudaFree(blockPtr); 
+            printf("Device malloc: %lf\n", eTime);
 
-            cudaDeviceSynchronize();
+            //CASE 4: DeAllocation of device memory
+            cudaEventRecord(start_e);
+            cudaFree(deviceMem); 
+            cudaEventRecord(stop_e);
+
+            cudaEventSynchronize(stop);
+         
+            cudaEventElapsedTime(&eTime, start, stop);
+
+            printf("Device free: %lf\n", eTime);
+
+            //CASE 4: DeAllocation of device memory
+
+
+            //cudaDeviceSynchronize();
 
          }
 
-      //}
+         printf("\n");      
+      }
 
+      // cleanup CUDA runtime events
       cudaEventDestroy(start);
       cudaEventDestroy(stop);
 }
+
+
 
 void TestHostDeviceBandwidth(cudaDeviceProp *props, int dCount, TestParams &params) {
 
@@ -242,6 +293,8 @@ void SetDefaultParams(TestParams &params) {
    params.devicePropFileName = "DeviceInfo.txt";
 
    params.runMemoryOverheadTest = true; 
+
+   params.runAllDevices = false;
    params.rangeMemOverhead[0] = 1;
    params.rangeMemOverhead[1] = 65535;
    params.rangeMemOverhead[2] = 1024;

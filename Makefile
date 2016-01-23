@@ -1,7 +1,7 @@
 CC=nvcc
 FILES=CUDA_Bandwidth
 EXE=run
-LDFLAGS= 
+LDFLAGS=-Wall -std=c++0x
 NONE=-lhwloc
 
 all:
