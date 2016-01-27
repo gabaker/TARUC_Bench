@@ -1,13 +1,13 @@
-CUDA PCI Bandwidth, Memory and Mulit-GPU Benchmarks
+CUDA PCIe Bandwidth, Memory and Multi-GPU Benchmarks that accounts for multi socket systems with many variable model GPUs
 
 Author:     Gavin Baker
 Contact:    gmbaker@sandia.gov
             gavin.m.baker@gmail.com
 
-Acknowledgements:
-         Craig Ulmer, PhD. (Sandia)
-         Jerry Friesen (Sandia)
-         Chris Lupo, PhD. (Cal Poly)
+Acknowledgements: 
+            Craig Ulmer,
+            Jerry Friesen,
+            Chris Lupo (Cal Poly)
 
 Explaination of Goals:
 
