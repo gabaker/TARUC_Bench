@@ -15,7 +15,7 @@
 #include<vector>
 
 #include<sys/time.h>
-
+//#include<chrono>
 
 #ifdef USING_CPP
 #include<chrono>
@@ -26,6 +26,8 @@
 
 // NUMA Locality includes
 //#include<hwloc.h>
+#define MILLI_TO_MICRO (1000.0)
+#define NANO_TO_MICRO (1000.0)
 
 typedef struct TestParams {
    std::string resultsFile;
@@ -81,7 +83,7 @@ void ResetDevices(int numToReset);
 void SetDefaultParams(TestParams &params); 
 void PrintTestParams(TestParams &params);
 void getNextLine(std::ifstream &inFile, std::string &lineStr);
-void printResults(std::ofstream &outFile, std::vector<std::vector<float> > &results, TestParams &params); 
+void printResults(std::ofstream &outFile, std::vector<long> &steps, std::vector<std::vector<float> > &results, TestParams &params); 
 
 int main (int argc, char **argv) {
    TestParams params;
@@ -112,6 +114,8 @@ int main (int argc, char **argv) {
       exit(-1);
    }
 
+
+   PrintTestParams(params);
    RunBandwidthTestSuite(params);
 
    return 0;
@@ -176,9 +180,8 @@ void TestMemoryOverhead(cudaDeviceProp *props, TestParams &params) {
       int nDevices = params.nDevices;
 
       std::vector<long> blockSteps;
-      std::vector<std::vector<float> > devData;
-      std::vector<std::vector<float> > hostData;
-      //std::vector<std::vector<float> > hostData;
+//      std::vector<std::vector<float> > devData;
+      std::vector<std::vector<float> > overheadData;
 
    // Only run overhead device cases on a single device
       // default to device 0
@@ -188,14 +191,15 @@ void TestMemoryOverhead(cudaDeviceProp *props, TestParams &params) {
       // Memory overhead test will run for each device utilizing the cudaMalloc and cudaFree functions
       // on the first iteration of the look, assuming there is atleast one device, the host will run the 
       // pinned and un-pinned memory tests
-      int stepSize = params.rangeMemOverhead[2];
+      long stepNum = 0;
+      long stepSize = (params.rangeMemOverhead[0] / 10 > 0) ? params.rangeMemOverhead[0] : 1; 
       for ( long chunkSize = params.rangeMemOverhead[0]; 
             chunkSize <= params.rangeMemOverhead[1]; 
             chunkSize += stepSize) {
-
+ 
          blockSteps.push_back(chunkSize); 
-         std::vector<float> chunkHostData;
-         std::vector<float> chunkDeviceData;
+         std::vector<float> chunkData;
+//         std::vector<float> chunkDeviceData;
 
          for (int currDev = 0; currDev < nDevices; currDev++) {
             cudaSetDevice(currDev);
@@ -211,25 +215,31 @@ void TestMemoryOverhead(cudaDeviceProp *props, TestParams &params) {
                cudaEventRecord(stop_e);                              //record finish call
                cudaEventSynchronize(stop_e);                         //sync all cuda calls before finish event
                cudaEventElapsedTime(&eTime, start_e, stop_e);        //calculate function call time
-               chunkHostData.push_back(eTime);
+               chunkData.push_back((float) eTime/* * MILLI_TO_MICRO*/);
                //deallocation
                cudaEventRecord(start_e);
                cudaFreeHost((void *) hostPinnedMem);
                cudaEventRecord(stop_e);
                cudaEventSynchronize(stop_e);
                cudaEventElapsedTime(&eTime, start_e, stop_e);
-               chunkHostData.push_back(eTime);
+               chunkData.push_back((float) eTime /* * MILLI_TO_MICRO*/);
+
 
                // Unpinned
                #ifdef USING_CPP
                auto start_t = std::chrono::high_resolution_clock::now();
                hostUnPinnedMem = (char *) malloc(chunkSize);
                auto stop_t = std::chrono::high_resolution_clock::now();
+               auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop_t - start_t);
+
+               chunkData.push_back((float) duration.count() * NANO_TO_MICRO);
 
                start_t = std::chrono::high_resolution_clock::now();
-               free(hostUnpinnedMem);
-               stop_t = std::chrono::high_resolution_clock::now();
- 
+               free(hostUnPinnedMem);
+               stop_t = std::chrono::high_resolution_clock::now(); 
+               duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop_t - start_t);
+               chunkData.push_back((float) duration.count() * NANO_TO_MICRO);
+               
                #else
                struct timeval stop_t, start_t, total_t;
                
@@ -238,25 +248,25 @@ void TestMemoryOverhead(cudaDeviceProp *props, TestParams &params) {
                hostUnPinnedMem = (char *) malloc(chunkSize); 
                gettimeofday(&stop_t, NULL);
                timersub(&stop_t, &start_t, &total_t);
-               chunkHostData.push_back(((float) total_t.tv_usec) / 1000.0);
+               chunkData.push_back(((float) total_t.tv_usec));
                //deallocation
                gettimeofday(&start_t, NULL);
                free(hostUnPinnedMem); 
                gettimeofday(&stop_t, NULL); 
                timersub(&stop_t, &start_t, &total_t); 
-               chunkHostData.push_back(((float) total_t.tv_usec) / 1000.0);
+               chunkData.push_back(((float) total_t.tv_usec));
                #endif
 
             }
 
             // CASE 3: Allocation of device memory
             cudaEventRecord(start_e);
-            cudaFree(deviceMem); 
+            cudaMalloc((void **) &deviceMem, chunkSize); 
             cudaEventRecord(stop_e);
 
             cudaEventSynchronize(stop_e);
             cudaEventElapsedTime(&eTime, start_e, stop_e);
-            chunkDeviceData.push_back(eTime);
+            chunkData.push_back((float)eTime  /*MILLI_TO_MICRO*/);
 
             // CASE 4: DeAllocation of device memory
             cudaEventRecord(start_e);
@@ -265,13 +275,19 @@ void TestMemoryOverhead(cudaDeviceProp *props, TestParams &params) {
 
             cudaEventSynchronize(stop_e);   
             cudaEventElapsedTime(&eTime, start_e, stop_e); 
-            chunkDeviceData.push_back(eTime);
+            chunkData.push_back((float) eTime /* MILLI_TO_MICRO*/);
 
          }
-         devData.push_back(chunkDeviceData);
-         hostData.push_back(chunkHostData);
-         chunkDeviceData.clear();
-         chunkHostData.clear();
+         //devData.push_back(chunkDeviceData);
+         overheadData.push_back(chunkData);
+         //chunkDeviceData.clear();
+         chunkData.clear();
+        
+         //stepNum++; 
+         //do 10 steps then check next range
+         if (stepNum && (stepNum % (params.rangeMemOverhead[2] - 1)) == 0)
+            stepSize *= 10;
+         stepNum++;
       }
 
       // cleanup CUDA runtime events
@@ -279,27 +295,30 @@ void TestMemoryOverhead(cudaDeviceProp *props, TestParams &params) {
       cudaEventDestroy(stop_e);
 
       //Print test Data
-      std::string fileName = params.resultsFile + "_dev_overhead.csv";
+/*      std::string fileName = param.resultsFile + "_overhead.csv";
       std::ofstream devResultsFile(fileName.c_str()); 
-      printResults(devResultsFile, devData, params);
-
-      fileName = params.resultsFile + "_host_overhead.csv";
-      std::ofstream hostResultsFile(fileName.c_str());
-      printResults(hostResultsFile, hostData, params);
+      printResults(devResultsFile, blockSteps, devData, params);
+*/
+      std::string dataFileName = params.resultsFile + "_overhead.csv";
+      std::ofstream overheadResultsFile(dataFileName.c_str());
+      printResults(overheadResultsFile, blockSteps, overheadData, params);
 }
 
-void printResults(std::ofstream &outFile, std::vector<std::vector<float> > &results, TestParams &params) {
-
+void printResults(std::ofstream &outFile, std::vector<long> &steps, std::vector<std::vector<float> > &results, TestParams &params) {
+   //std::cout.setf(std::ios::showpoint);
+   
    if (!outFile.is_open()) {
       std::cout << "Failed to open file to print results" << std::endl;
       return;
    }
    std::vector<std::vector<float> >::iterator iter_o;
    std::vector<float>::iterator iter_i;
+   std::vector<long>::iterator iter_l = steps.begin();
    
    for (iter_o = results.begin(); iter_o != results.end(); ++iter_o) {
+      outFile << std::fixed << *iter_l++ << ",";
       for (iter_i = (*iter_o).begin(); iter_i != (*iter_o).end(); ++iter_i) {
-         outFile << *iter_i;
+         outFile << std::fixed << *iter_i;
          if (iter_i + 1 != (*iter_o).end())
             outFile << ",";
       }
@@ -350,6 +369,8 @@ void ParseTestParameters(TestParams &params) {
    std::string lineStr;
    std::ifstream inFile(params.inputFile.c_str());
 
+   params.useDefaultParams = false;
+
    getNextLine(inFile, lineStr); //resultsFile
    params.resultsFile = lineStr.substr(lineStr.find ('=') + 1);
 
@@ -389,55 +410,63 @@ void ParseTestParameters(TestParams &params) {
    params.runPCIeCongestionTest = getNextLineBool(inFile, lineStr); //runPCIeCongestionTest
    params.runTaskScalabilityTest = getNextLineBool(inFile, lineStr); //runTaskScalabilityTest
    
-   PrintTestParams(params);
 }
 
+//TODO:hacky print function; fix this
 void PrintTestParams(TestParams &params) {
 
-   std::cout << std::boolalpha;
+   std::string paramFileName = "benchmark_params.out";
+   std::ofstream outParamFile(paramFileName.c_str());
 
-   std::cout << "------------------------------------------------------------" << std::endl; 
-   std::cout << "---------------------- Test Parameters ---------------------" << std::endl; 
-   std::cout << "------------------------------------------------------------" << std::endl; 
-   std::cout << "Input File:\t\t\t" << params.inputFile << std::endl;
-   std::cout << "Output file:\t\t\t" << params.resultsFile << std::endl;
-   std::cout << "Using Defaults:\t\t\t" << params.useDefaultParams << std::endl;  
-   std::cout << "Printing Device Props:\t\t" << params.printDevProps << std::endl;
-   std::cout << "Device Property File:\t\t" << params.devPropFile << std::endl;
-   std::cout << "Device Count:\t\t\t" << params.nDevices << std::endl;
+   outParamFile << std::boolalpha;
+   outParamFile << "------------------------------------------------------------" << std::endl; 
+   outParamFile << "---------------------- Test Parameters ---------------------" << std::endl; 
+   outParamFile << "------------------------------------------------------------" << std::endl; 
+   outParamFile << "Input File:\t\t\t" << params.inputFile << std::endl;
+   outParamFile << "Output file:\t\t\t" << params.resultsFile << std::endl;
+   outParamFile << "Using Defaults:\t\t\t" << params.useDefaultParams << std::endl;  
+   outParamFile << "Printing Device Props:\t\t" << params.printDevProps << std::endl;
+   outParamFile << "Device Property File:\t\t" << params.devPropFile << std::endl;
+   outParamFile << "Device Count:\t\t\t" << params.nDevices << std::endl;
+   outParamFile << "------------------------------------------------------------" << std::endl; 
+   outParamFile << "Run Memory Overhead Test:\t" << params.runMemoryOverheadTest << std::endl;
+   outParamFile << "Use all Devices:\t\t" << params.runAllDevices << std::endl;
+   outParamFile << "Allocation Range: \t\t";
+   outParamFile << params.rangeMemOverhead[0] << "," << params.rangeMemOverhead[1];
+   outParamFile << "," << params.rangeMemOverhead[2] << " (min,max,step)" << std::endl;
+   outParamFile << "------------------------------------------------------------" << std::endl; 
+   outParamFile << "Run Host-Device Bandwidth Test:\t" << params.runHostDeviceBandwidthTest << std::endl;
+   outParamFile << "Vary Block Size:\t\t" << params.varyBlockSizeHD << std::endl;
+   outParamFile << "Use Pinned Host Mem:\t\t" << params.usePinnedHD << std::endl;
+   outParamFile << "Burst Mode:\t\t\t" << params.runBurstHD << std::endl;
+   outParamFile << "Sustained Mode:\t\t\t" << params.runSustainedHD << std::endl;
+   outParamFile << "Allocation Range:\t\t"; 
+   outParamFile << params.rangeHostDeviceBW[0] << "," << params.rangeHostDeviceBW[1] << ","; 
+   outParamFile << params.rangeHostDeviceBW[2] << " (min,max,step)" << std::endl;
+   outParamFile << "------------------------------------------------------------" << std::endl; 
+   outParamFile << "Run P2P Bandwidth Test:\t\t" << params.runP2PBandwidthTest << std::endl;
+   outParamFile << "Vary Block Size:\t\t" << params.varyBlockSizeP2P << std::endl;
+   outParamFile << "Burst Mode:\t\t\t" << params.runBurstP2P << std::endl;
+   outParamFile << "Sustained Mode:\t\t\t" << params.runSustainedP2P << std::endl;
+   outParamFile << "Allocation Range:\t\t";
+   outParamFile << params.rangeDeviceP2P[0] << "," << params.rangeDeviceP2P[1] << ",";
+   outParamFile << params.rangeDeviceP2P[2] << " (min,max,step)" << std::endl;
+   outParamFile << "------------------------------------------------------------" << std::endl; 
+   outParamFile << "Run PCIe CongestionTest:\t" << params.runPCIeCongestionTest << std::endl;
+   outParamFile << "------------------------------------------------------------" << std::endl; 
+   outParamFile << "Run Task Scalability Test:\t" << params.runTaskScalabilityTest << std::endl; 
+   outParamFile << "------------------------------------------------------------" << std::endl;    
+   outParamFile << std::noboolalpha;
 
-   std::cout << "------------------------------------------------------------" << std::endl; 
-   std::cout << "Run Memory Overhead Test:\t" << params.runMemoryOverheadTest << std::endl;
-   std::cout << "Use all Devices:\t\t" << params.runAllDevices << std::endl;
-   std::cout << "Allocation Range: \t\t";
-   std::cout << params.rangeMemOverhead[0] << "," << params.rangeMemOverhead[1];
-   std::cout << "," << params.rangeMemOverhead[2] << " (min,max,step)" << std::endl;
+   //read params out to command line
+   outParamFile.close();
+   std::string contents;
+   std::ifstream inFile(paramFileName.c_str());
+   while (std::getline(inFile,contents)) {
+      std::cout << contents << std::endl;
+   } 
+   inFile.close();
 
-   std::cout << "------------------------------------------------------------" << std::endl; 
-   std::cout << "Run Host-Device Bandwidth Test:\t" << params.runHostDeviceBandwidthTest << std::endl;
-   std::cout << "Vary Block Size:\t\t" << params.varyBlockSizeHD << std::endl;
-   std::cout << "Use Pinned Host Mem:\t\t" << params.usePinnedHD << std::endl;
-   std::cout << "Burst Mode:\t\t\t" << params.runBurstHD << std::endl;
-   std::cout << "Sustained Mode:\t\t\t" << params.runSustainedHD << std::endl;
-   std::cout << "Allocation Range:\t\t"; 
-   std::cout << params.rangeHostDeviceBW[0] << "," << params.rangeHostDeviceBW[1] << ","; 
-   std::cout << params.rangeHostDeviceBW[2] << " (min,max,step)" << std::endl;
-
-   std::cout << "------------------------------------------------------------" << std::endl; 
-   std::cout << "Run P2P Bandwidth Test:\t\t" << params.runP2PBandwidthTest << std::endl;
-   std::cout << "Vary Block Size:\t\t" << params.varyBlockSizeP2P << std::endl;
-   std::cout << "Burst Mode:\t\t\t" << params.runBurstP2P << std::endl;
-   std::cout << "Sustained Mode:\t\t\t" << params.runSustainedP2P << std::endl;
-   std::cout << "Allocation Range:\t\t";
-   std::cout << params.rangeDeviceP2P[0] << "," << params.rangeDeviceP2P[1] << ",";
-   std::cout << params.rangeDeviceP2P[2] << " (min,max,step)" << std::endl;
-   std::cout << "------------------------------------------------------------" << std::endl; 
-   std::cout << "Run PCIe CongestionTest:\t" << params.runPCIeCongestionTest << std::endl;
-   std::cout << "------------------------------------------------------------" << std::endl; 
-   std::cout << "Run Task Scalability Test:\t" << params.runTaskScalabilityTest << std::endl; 
-   std::cout << "------------------------------------------------------------" << std::endl; 
-   
-   std::cout << std::noboolalpha;
 }
 
 // Set default device properties based on an interesting variety of tests 
@@ -446,18 +475,18 @@ void PrintTestParams(TestParams &params) {
 // specific system system
 void SetDefaultParams(TestParams &params) {
 
-   params.resultsFile = "Results.csv";
+   params.resultsFile = "results";
    params.inputFile = "none";
    params.useDefaultParams = true;
 
-   params.printDevProps = false;
-   params.devPropFile = "none";
+   params.printDevProps = true;
+   params.devPropFile = "device_info.out";
 
    params.runMemoryOverheadTest = true; 
-   params.runAllDevices = false;
+   params.runAllDevices = true;
    params.rangeMemOverhead[0] = 1;
-   params.rangeMemOverhead[1] = 65535;
-   params.rangeMemOverhead[2] = 1024;
+   params.rangeMemOverhead[1] = 1000001;
+   params.rangeMemOverhead[2] = 10000;
    
    params.runHostDeviceBandwidthTest = false;
    params.varyBlockSizeHD = true;
@@ -484,6 +513,12 @@ void SetDefaultParams(TestParams &params) {
 // Prints the device properties out to file based named depending on the 
 void PrintDeviceProps(cudaDeviceProp *props, TestParams &params) {
    std::cout << "\nSee " << params.devPropFile << " for information about your device's properties." << std::endl; 
+
+   std::ofstream deviceProps(params.devPropFile.c_str());
+
+   deviceProps << "Device Properties:" << std::endl;
+
+   deviceProps.close();
 }
 
 // Creates an array of cudaDeviceProp structs with populated data

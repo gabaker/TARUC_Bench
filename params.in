@@ -1,0 +1,32 @@
+---------------------------------
+resultsFile=results
+printDevProps=true
+devPropFile=device_info.out
+---------------------------------
+runMemoryOverheadTest=true
+runAllDevices=true
+range min=10
+range max=1000000000
+range step=10
+--------------------------------
+runHostDeviceBandwidthTest=false
+varyBlockSizeHD=true
+usePinnedHD=true
+runBurstHD=true
+runSustainedHD=true
+range min=1
+range max=1000
+range step=10
+--------------------------------
+runP2PBandwidthTest=false
+varyBlockSizeP2P=true
+runBurstP2P=true
+runSustainedP2P=true
+range min=30
+range max=3000
+range step=30
+--------------------------------
+runPCIeCongestionTest=false
+--------------------------------
+runTaskScalabilityTest=false
+--------------------------------
