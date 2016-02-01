@@ -201,7 +201,7 @@ void TestMemoryOverhead(cudaDeviceProp *props, TestParams &params) {
          std::vector<float> chunkData;
 
          for (int currDev = 0; currDev < nDevices; currDev++) {
-            cudaError_t setDev = cudaSetDevice(currDev);
+            cudaError_t setDev = cudaSetDevice(1);//currDev);
 
             if (setDev != cudaSuccess)
                std::cout << "Did not get device lock" << std::endl;
@@ -263,20 +263,22 @@ void TestMemoryOverhead(cudaDeviceProp *props, TestParams &params) {
 
             // CASE 3: Allocation of device memory
             cudaEventRecord(start_e);
-            cudaMalloc((void **) &deviceMem, chunkSize); 
+            cudaMalloc((void **) &deviceMem, chunkSize);
             cudaEventRecord(stop_e);
-
             cudaEventSynchronize(stop_e);
             cudaEventElapsedTime(&eTime, start_e, stop_e);
+            
+            std::cout << eTime << std::endl;
             chunkData.push_back((float)eTime  /*MILLI_TO_MICRO*/);
 
             // CASE 4: DeAllocation of device memory
             cudaEventRecord(start_e);
             cudaFree(deviceMem); 
             cudaEventRecord(stop_e);
-
             cudaEventSynchronize(stop_e);   
             cudaEventElapsedTime(&eTime, start_e, stop_e); 
+            
+            std::cout << eTime << std::endl;
             chunkData.push_back((float) eTime /* MILLI_TO_MICRO*/);
 
          }
