@@ -12,4 +12,4 @@ cpp:
 	$(CC) $(DFLAGS) $(LDFLAGS) $(FILES).cu -o $(EXE)
 
 clean:
-	rm $(EXE) *.o
+	rm $(EXE) 
