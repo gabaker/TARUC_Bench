@@ -6,8 +6,8 @@ devPropFile=device_info.out
 runMemoryOverheadTest=true
 runAllDevices=true
 range min=10
-range max=1000000000
-range step=10
+range max=8000000000
+range step=8
 --------------------------------
 runHostDeviceBandwidthTest=false
 varyBlockSizeHD=true

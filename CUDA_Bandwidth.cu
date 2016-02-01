@@ -199,10 +199,12 @@ void TestMemoryOverhead(cudaDeviceProp *props, TestParams &params) {
  
          blockSteps.push_back(chunkSize); 
          std::vector<float> chunkData;
-//         std::vector<float> chunkDeviceData;
 
          for (int currDev = 0; currDev < nDevices; currDev++) {
-            cudaSetDevice(currDev);
+            cudaError_t setDev = cudaSetDevice(currDev);
+
+            if (setDev != cudaSuccess)
+               std::cout << "Did not get device lock" << std::endl;
 
             // CASE 1 & 2: Host memory overhead
             // Host test only runs the first time
@@ -278,13 +280,10 @@ void TestMemoryOverhead(cudaDeviceProp *props, TestParams &params) {
             chunkData.push_back((float) eTime /* MILLI_TO_MICRO*/);
 
          }
-         //devData.push_back(chunkDeviceData);
          overheadData.push_back(chunkData);
-         //chunkDeviceData.clear();
          chunkData.clear();
         
-         //stepNum++; 
-         //do 10 steps then check next range
+         //do params.steps steps then check next range
          if (stepNum && (stepNum % (params.rangeMemOverhead[2] - 1)) == 0)
             stepSize *= 10;
          stepNum++;
@@ -294,14 +293,10 @@ void TestMemoryOverhead(cudaDeviceProp *props, TestParams &params) {
       cudaEventDestroy(start_e);
       cudaEventDestroy(stop_e);
 
-      //Print test Data
-/*      std::string fileName = param.resultsFile + "_overhead.csv";
-      std::ofstream devResultsFile(fileName.c_str()); 
-      printResults(devResultsFile, blockSteps, devData, params);
-*/
       std::string dataFileName = params.resultsFile + "_overhead.csv";
       std::ofstream overheadResultsFile(dataFileName.c_str());
       printResults(overheadResultsFile, blockSteps, overheadData, params);
+
 }
 
 void printResults(std::ofstream &outFile, std::vector<long> &steps, std::vector<std::vector<float> > &results, TestParams &params) {
