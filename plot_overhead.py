@@ -23,7 +23,7 @@ for idx in range(0, numDevices):
    elif(idx == 1):
       runLabel="malloc"
    else:
-      runLabel="cudaMalloc " + str(idx - 2)
+      runLabel="cudaMalloc Dev: " + str(idx - 2)
 
    plt.figure(1)
    x = np.genfromtxt (str(sys.argv[1]), delimiter=",", usecols=(idx * 2 + 1))
@@ -34,7 +34,7 @@ for idx in range(0, numDevices):
    elif(idx == 1):
       runLabel="free"
    else:
-      runLabel="cudaFree " + str(idx - 2)
+      runLabel="cudaFree Dev: " + str(idx - 2)
 
    plt.figure(2) 
    x = np.genfromtxt (str(sys.argv[1]), delimiter=",", usecols=(idx * 2 + 2))
@@ -48,7 +48,7 @@ plt.ylabel('Call Duration (ms)')
 plt.xscale('log')
 plt.yscale('log')
 plt.legend(loc='upper left', fontsize=8)
-plt.ylim(ymin=0.01)
+plt.ylim(ymin=0.0001)
 plt.xlim(xmax=10000000000)
 plt.savefig('overhead_alloc.png', bbox_inches='tight')
 
@@ -58,7 +58,7 @@ plt.ylabel('Call Duration (ms)')
 plt.xlabel('Freed Block Size (bytes)')
 plt.xscale('log')
 plt.yscale('log')
-plt.ylim(ymin=0.01)
+plt.ylim(ymin=0.0001)
 plt.xlim(xmax=10000000000)
 plt.legend(loc='upper left', fontsize=8)
 plt.savefig('overhead_deallocation.png', bbox_inches='tight')

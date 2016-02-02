@@ -1,5 +1,7 @@
 // CUDA API and includes
 #include<cuda_runtime.h>
+#include<cuda.h>
+#include<helper_cuda.h>
 
 // C/C++ standard includes
 #include<memory>
@@ -26,8 +28,11 @@
 
 // NUMA Locality includes
 //#include<hwloc.h>
-#define MILLI_TO_MICRO (1000.0)
-#define NANO_TO_MICRO (1000.0)
+
+#define MILLI_TO_MICRO (1.0 / 1000.0)
+#define MICRO_TO_MILLI (1000.0)
+#define NANO_TO_MILLI (1.0 / 1000000.0)
+#define NANO_TO_MICRO (1.0 / 1000.0)
 
 typedef struct TestParams {
    std::string resultsFile;
@@ -66,6 +71,16 @@ typedef struct TestParams {
    bool runTaskScalabilityTest;
 
 } TestParams;
+
+typedef enum
+{
+DEVICE_MALLOC,
+HOST_MALLOC,
+HOST_PINNED_MALLOC,
+DEVICE_FREE,
+HOST_FREE,
+HOST_PINNED_FREE
+} MEM_OP;
 
 void RunBandwidthTestSuite(TestParams &params);
 
@@ -167,23 +182,98 @@ void RunBandwidthTestSuite(TestParams &params) {
    free(props);
 }
 
-void TestMemoryOverhead(cudaDeviceProp *props, TestParams &params) {
-      // Create CUDA runtime events used to time device operations
-      cudaEvent_t start_e, stop_e; 
-      cudaEventCreate(&start_e);
-      cudaEventCreate(&stop_e);
+float TimedMemOp(void **MemBlk, int NumBytes, MEM_OP TimedOp) {
+   #ifdef USING_CPP
+   std::chrono::high_resolution_clock::time_point start_c, stop_c;
+   auto total_c = std::chrono::duration_cast<std::chrono::nanoseconds>(stop_c - start_c);
+   #else
+   struct timeval stop_t, start_t, total_t;
+   #endif
+   
+   cudaEvent_t start_e, stop_e; 
+   cudaEventCreate(&start_e);
+   cudaEventCreate(&stop_e);
+   float OpTime = 0;
+  
+   switch (TimedOp) {
+      case HOST_MALLOC:
+         #ifdef USING_CPP
+         start_c = std::chrono::high_resolution_clock::now();
+         *MemBlk = malloc(NumBytes);
+         stop_c = std::chrono::high_resolution_clock::now();
+         total_c = std::chrono::duration_cast<std::chrono::nanoseconds>(stop_c - start_c);      
+         OpTime = (float) total_c.count() * NANO_TO_MILLI;
+         #else
+         gettimeofday(&start_t, NULL);
+         *MemBlk = malloc(NumBytes); 
+         gettimeofday(&stop_t, NULL);
+         timersub(&stop_t, &start_t, &total_t);
+         OpTime = (float) total_t.tv_usec * MICRO_TO_MILLI;
+         #endif
+         break;
+      case HOST_PINNED_MALLOC:
+         cudaEventRecord(start_e, 0);      
+         cudaMallocHost(MemBlk, NumBytes);
+         cudaEventRecord(stop_e, 0);
+         cudaEventSynchronize(stop_e);
+         cudaEventElapsedTime(&OpTime, start_e, stop_e);
+         break;
+      case DEVICE_MALLOC:
+         checkCudaErrors(cudaEventRecord(start_e, 0));
+         checkCudaErrors(cudaMalloc(MemBlk, NumBytes));
+         checkCudaErrors(cudaEventRecord(stop_e, 0));
+         checkCudaErrors(cudaEventSynchronize(stop_e));
+         checkCudaErrors(cudaEventElapsedTime(&OpTime, start_e, stop_e)); 
+         break;
+      case HOST_FREE:
+         #ifdef USING_CPP
+         start_c = std::chrono::high_resolution_clock::now();
+         free(*MemBlk);
+         stop_c = std::chrono::high_resolution_clock::now(); 
+         total_c = std::chrono::duration_cast<std::chrono::nanoseconds>(stop_c - start_c);
+         OpTime = (float) total_c.count() * NANO_TO_MILLI;
+         #else
+         gettimeofday(&start_t, NULL);
+         free(*MemBlk); 
+         gettimeofday(&stop_t, NULL); 
+         timersub(&stop_t, &start_t, &total_t); 
+         OpTime = (float) total_t.tv_usec * MICRO_TO_MILLI;
+         #endif
+         break;
+      case HOST_PINNED_FREE:
+         cudaEventRecord(start_e, 0);
+         cudaFreeHost(*MemBlk);
+         cudaEventRecord(stop_e, 0);
+         cudaEventSynchronize(stop_e);
+         cudaEventElapsedTime(&OpTime, start_e, stop_e);
+         break;
+      case DEVICE_FREE:
+         checkCudaErrors(cudaEventRecord(start_e, 0));
+         checkCudaErrors(cudaFree(*MemBlk)); 
+         checkCudaErrors(cudaEventRecord(stop_e, 0));
+         checkCudaErrors(cudaEventSynchronize(stop_e));   
+         checkCudaErrors(cudaEventElapsedTime(&OpTime, start_e, stop_e));  
+         break;
+      default:
+         std::cout << "Error: unrecognized timed memory operation type" << std::cout; 
+         break;
+   }
+   cudaEventDestroy(start_e);
+   cudaEventDestroy(stop_e);
 
+   return OpTime;
+}
+
+void TestMemoryOverhead(cudaDeviceProp *props, TestParams &params) {
       char *deviceMem = NULL;
-      char *hostUnPinnedMem = NULL;
+      char *hostMem = NULL;
       char *hostPinnedMem = NULL;
-      float eTime = 0.0;
       int nDevices = params.nDevices;
 
       std::vector<long> blockSteps;
-//      std::vector<std::vector<float> > devData;
       std::vector<std::vector<float> > overheadData;
 
-   // Only run overhead device cases on a single device
+      // Only run overhead device cases on a single device
       // default to device 0
       if (!params.runAllDevices)
          nDevices = 1;
@@ -200,87 +290,23 @@ void TestMemoryOverhead(cudaDeviceProp *props, TestParams &params) {
          blockSteps.push_back(chunkSize); 
          std::vector<float> chunkData;
 
+         //CASE 1: Host Pinned Memory Overhead
+         chunkData.push_back(TimedMemOp((void **) &hostPinnedMem, chunkSize, HOST_PINNED_MALLOC));
+         chunkData.push_back(TimedMemOp((void **) &hostPinnedMem, 0, HOST_PINNED_FREE));
+
+         //CASE 2: Host UnPinned Memory Overhead
+         chunkData.push_back(TimedMemOp((void **) &hostMem, 0, HOST_FREE));
+         chunkData.push_back(TimedMemOp((void **) &hostMem, chunkSize, HOST_MALLOC));
+
+         //CASE 3 & 4: Device Memory Overhead
          for (int currDev = 0; currDev < nDevices; currDev++) {
-            cudaError_t setDev = cudaSetDevice(1);//currDev);
+            checkCudaErrors(cudaSetDevice(currDev));//currDev);
 
-            if (setDev != cudaSuccess)
-               std::cout << "Did not get device lock" << std::endl;
-
-            // CASE 1 & 2: Host memory overhead
-            // Host test only runs the first time
-            if (currDev == 0) {
-
-               // Pinned
-               //allocation
-               cudaEventRecord(start_e);                             //record start call
-               cudaMallocHost((void **) &hostPinnedMem, chunkSize);  //malloc pinned memory
-               cudaEventRecord(stop_e);                              //record finish call
-               cudaEventSynchronize(stop_e);                         //sync all cuda calls before finish event
-               cudaEventElapsedTime(&eTime, start_e, stop_e);        //calculate function call time
-               chunkData.push_back((float) eTime/* * MILLI_TO_MICRO*/);
-               //deallocation
-               cudaEventRecord(start_e);
-               cudaFreeHost((void *) hostPinnedMem);
-               cudaEventRecord(stop_e);
-               cudaEventSynchronize(stop_e);
-               cudaEventElapsedTime(&eTime, start_e, stop_e);
-               chunkData.push_back((float) eTime /* * MILLI_TO_MICRO*/);
-
-
-               // Unpinned
-               #ifdef USING_CPP
-               auto start_t = std::chrono::high_resolution_clock::now();
-               hostUnPinnedMem = (char *) malloc(chunkSize);
-               auto stop_t = std::chrono::high_resolution_clock::now();
-               auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop_t - start_t);
-
-               chunkData.push_back((float) duration.count() * NANO_TO_MICRO);
-
-               start_t = std::chrono::high_resolution_clock::now();
-               free(hostUnPinnedMem);
-               stop_t = std::chrono::high_resolution_clock::now(); 
-               duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop_t - start_t);
-               chunkData.push_back((float) duration.count() * NANO_TO_MICRO);
-               
-               #else
-               struct timeval stop_t, start_t, total_t;
-               
-               //allocation
-               gettimeofday(&start_t, NULL);
-               hostUnPinnedMem = (char *) malloc(chunkSize); 
-               gettimeofday(&stop_t, NULL);
-               timersub(&stop_t, &start_t, &total_t);
-               chunkData.push_back(((float) total_t.tv_usec));
-               //deallocation
-               gettimeofday(&start_t, NULL);
-               free(hostUnPinnedMem); 
-               gettimeofday(&stop_t, NULL); 
-               timersub(&stop_t, &start_t, &total_t); 
-               chunkData.push_back(((float) total_t.tv_usec));
-               #endif
-
-            }
-
-            // CASE 3: Allocation of device memory
-            cudaEventRecord(start_e);
-            cudaMalloc((void **) &deviceMem, chunkSize);
-            cudaEventRecord(stop_e);
-            cudaEventSynchronize(stop_e);
-            cudaEventElapsedTime(&eTime, start_e, stop_e);
+            // CASE 3: Allocation of device memory  
+            chunkData.push_back(TimedMemOp((void **) &deviceMem, chunkSize, DEVICE_MALLOC));
             
-            std::cout << eTime << std::endl;
-            chunkData.push_back((float)eTime  /*MILLI_TO_MICRO*/);
-
-            // CASE 4: DeAllocation of device memory
-            cudaEventRecord(start_e);
-            cudaFree(deviceMem); 
-            cudaEventRecord(stop_e);
-            cudaEventSynchronize(stop_e);   
-            cudaEventElapsedTime(&eTime, start_e, stop_e); 
-            
-            std::cout << eTime << std::endl;
-            chunkData.push_back((float) eTime /* MILLI_TO_MICRO*/);
-
+            // CASE 4: DeAllocation of device memory 
+            chunkData.push_back(TimedMemOp((void **) &deviceMem, 0, DEVICE_FREE));
          }
          overheadData.push_back(chunkData);
          chunkData.clear();
@@ -291,14 +317,9 @@ void TestMemoryOverhead(cudaDeviceProp *props, TestParams &params) {
          stepNum++;
       }
 
-      // cleanup CUDA runtime events
-      cudaEventDestroy(start_e);
-      cudaEventDestroy(stop_e);
-
       std::string dataFileName = params.resultsFile + "_overhead.csv";
       std::ofstream overheadResultsFile(dataFileName.c_str());
       printResults(overheadResultsFile, blockSteps, overheadData, params);
-
 }
 
 void printResults(std::ofstream &outFile, std::vector<long> &steps, std::vector<std::vector<float> > &results, TestParams &params) {
@@ -335,7 +356,6 @@ void TestP2PDeviceBandwidth(cudaDeviceProp *props, TestParams &params){
 void TestPCIeCongestion(cudaDeviceProp *props, TestParams &params) {
    std::cout << "Running PCIe congestion test" << std::endl;
 }
-
 
 void TestTaskScalability(cudaDeviceProp *props, TestParams &params) {
    std::cout << "Running task scalability test" << std::endl;
