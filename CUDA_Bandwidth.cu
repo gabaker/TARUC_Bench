@@ -15,6 +15,8 @@
 #include<iostream>
 #include<ios>
 #include<vector>
+#include<unistd.h>
+
 
 #include<sys/time.h>
 //#include<chrono>
@@ -182,7 +184,7 @@ void RunBandwidthTestSuite(TestParams &params) {
    free(props);
 }
 
-float TimedMemOp(void **MemBlk, int NumBytes, MEM_OP TimedOp) {
+float TimedMemOp(void **MemBlk, long NumBytes, MEM_OP TimedOp) {
    #ifdef USING_CPP
    std::chrono::high_resolution_clock::time_point start_c, stop_c;
    auto total_c = std::chrono::duration_cast<std::chrono::nanoseconds>(stop_c - start_c);
@@ -277,44 +279,51 @@ void TestMemoryOverhead(cudaDeviceProp *props, TestParams &params) {
       // default to device 0
       if (!params.runAllDevices)
          nDevices = 1;
-
+      
       // Memory overhead test will run for each device utilizing the cudaMalloc and cudaFree functions
       // on the first iteration of the look, assuming there is atleast one device, the host will run the 
       // pinned and un-pinned memory tests
-      long stepNum = 0;
-      long stepSize = (params.rangeMemOverhead[0] / 10 > 0) ? params.rangeMemOverhead[0] : 1; 
-      for ( long chunkSize = params.rangeMemOverhead[0]; 
-            chunkSize <= params.rangeMemOverhead[1]; 
-            chunkSize += stepSize) {
+      for (int currDev = 0; currDev < nDevices; currDev++) {
+         checkCudaErrors(cudaSetDevice(currDev));
  
-         blockSteps.push_back(chunkSize); 
          std::vector<float> chunkData;
+         long stepNum = 0;
+         long stepSize = params.rangeMemOverhead[0];// / params.rangeMemOverhead[2];
+         //stepSize = (stepSize) ? stepSize : params.rangeMemOverhead[0]; 
+         for ( long chunkSize = params.rangeMemOverhead[0]; 
+               chunkSize <= params.rangeMemOverhead[1]; 
+               chunkSize += stepSize) { 
 
-         //CASE 1: Host Pinned Memory Overhead
-         chunkData.push_back(TimedMemOp((void **) &hostPinnedMem, chunkSize, HOST_PINNED_MALLOC));
-         chunkData.push_back(TimedMemOp((void **) &hostPinnedMem, 0, HOST_PINNED_FREE));
-
-         //CASE 2: Host UnPinned Memory Overhead
-         chunkData.push_back(TimedMemOp((void **) &hostMem, 0, HOST_FREE));
-         chunkData.push_back(TimedMemOp((void **) &hostMem, chunkSize, HOST_MALLOC));
-
-         //CASE 3 & 4: Device Memory Overhead
-         for (int currDev = 0; currDev < nDevices; currDev++) {
-            checkCudaErrors(cudaSetDevice(currDev));//currDev);
-
+            if (currDev == 0) {
+               blockSteps.push_back(chunkSize); 
+               //CASE 1: Host Pinned Memory Overhead
+               chunkData.push_back(TimedMemOp((void **) &hostPinnedMem, chunkSize, HOST_PINNED_MALLOC));
+               chunkData.push_back(TimedMemOp((void **) &hostPinnedMem, 0, HOST_PINNED_FREE)); 
+               //CASE 2: Host UnPinned Memory Overhead
+               chunkData.push_back(TimedMemOp((void **) &hostMem, 0, HOST_FREE));
+               chunkData.push_back(TimedMemOp((void **) &hostMem, chunkSize, HOST_MALLOC));
+            }
             // CASE 3: Allocation of device memory  
             chunkData.push_back(TimedMemOp((void **) &deviceMem, chunkSize, DEVICE_MALLOC));
-            
             // CASE 4: DeAllocation of device memory 
             chunkData.push_back(TimedMemOp((void **) &deviceMem, 0, DEVICE_FREE));
+            
+            //Add device/host run data to correct location of data vector
+            if (currDev == 0) {
+               overheadData.push_back(chunkData); 
+            } else {
+               overheadData[stepNum].push_back(chunkData[0]);
+               overheadData[stepNum].push_back(chunkData[1]);
+            }
+            chunkData.clear(); //clear chunkData for next mem step 
+
+            //Move to next stepSize after every numSteps as set by the param file
+            long stride = (params.rangeMemOverhead[2] - 1) ? (params.rangeMemOverhead[2] - 1) : 1;
+            if (stepNum && (stepNum % stride) == 0) {
+               stepSize *= 2;
+            }
+            stepNum++;
          }
-         overheadData.push_back(chunkData);
-         chunkData.clear();
-        
-         //do params.steps steps then check next range
-         if (stepNum && (stepNum % (params.rangeMemOverhead[2] - 1)) == 0)
-            stepSize *= 10;
-         stepNum++;
       }
 
       std::string dataFileName = params.resultsFile + "_overhead.csv";

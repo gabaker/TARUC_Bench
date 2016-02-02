@@ -15,7 +15,7 @@ colors = list("brygcm")
 
 blkSize = np.genfromtxt (str(sys.argv[1]), delimiter=",", usecols=(0))
 
-for idx in range(0, numDevices):
+for idx in range(0, numDevices + 2):
    runLabel = ""
 
    if (idx == 0):
@@ -27,7 +27,9 @@ for idx in range(0, numDevices):
 
    plt.figure(1)
    x = np.genfromtxt (str(sys.argv[1]), delimiter=",", usecols=(idx * 2 + 1))
-   plt.scatter(blkSize, x, c = colors[idx], label = runLabel)
+   
+   plt.plot(blkSize, x, c = colors[idx], label = runLabel)
+   plt.scatter(blkSize, x, c = colors[idx])
    
    if (idx == 0):
       runLabel="cudaHostFree"
@@ -38,8 +40,8 @@ for idx in range(0, numDevices):
 
    plt.figure(2) 
    x = np.genfromtxt (str(sys.argv[1]), delimiter=",", usecols=(idx * 2 + 2))
+   plt.plot(blkSize, x, c = colors[idx])
    plt.scatter(blkSize, x, c = colors[idx], label = runLabel)
-
 
 plt.figure(1)
 plt.title('Memory Allocation Overhead')
