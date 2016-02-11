@@ -2,6 +2,8 @@
 resultsFile=results
 printDevProps=true
 devPropFile=device_info.out
+topoFile=topology.in
+runTopoAware=true
 ---------------------------------
 runMemoryOverheadTest=true
 runAllDevices=true

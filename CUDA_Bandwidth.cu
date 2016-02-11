@@ -1,5 +1,4 @@
-// CUDA API and includes
-#include<cuda_runtime.h>
+// in case no nclude<cuda_runtime.h>
 #include<cuda.h>
 #include<helper_cuda.h>
 
@@ -43,6 +42,9 @@ typedef struct TestParams {
 
    bool printDevProps;
    std::string devPropFile;
+
+   std::string topoFile;
+   bool runTopoAware;
 
    int nDevices;
 
@@ -100,11 +102,10 @@ void ResetDevices(int numToReset);
 void SetDefaultParams(TestParams &params); 
 void PrintTestParams(TestParams &params);
 void getNextLine(std::ifstream &inFile, std::string &lineStr);
-void printResults(std::ofstream &outFile, std::vector<long> &steps, std::vector<std::vector<float> > &results, TestParams &params); 
+void printResults(std::ofstream &outFile, std::vector<long> &steps, std::vector<std::vector<float> > &results, TestParams &params);
 
 int main (int argc, char **argv) {
-   TestParams params;
- 
+   TestParams params; 
    
    std::cout << "\nStarting Multi-GPU Performance Test Suite...\n" << std::endl; 
 
@@ -408,6 +409,9 @@ void ParseTestParameters(TestParams &params) {
    params.printDevProps = getNextLineBool(inFile, lineStr); //printDeviceProps
    getNextLine(inFile, lineStr);
    params.devPropFile = lineStr.substr(lineStr.find ('=') + 1); //devPropFile
+   getNextLine(inFile, lineStr);
+   params.topoFile = lineStr.substr(lineStr.find ('=') + 1); //topoFile
+   params.runTopoAware = getNextLineBool(inFile, lineStr); //runTopoAware
   
    params.runMemoryOverheadTest = getNextLineBool(inFile, lineStr); //runMemoryOverheadTest
    params.runAllDevices = getNextLineBool(inFile, lineStr); //runAllDevices 
@@ -446,7 +450,7 @@ void ParseTestParameters(TestParams &params) {
 //TODO:hacky print function; fix this
 void PrintTestParams(TestParams &params) {
 
-   std::string paramFileName = "benchmark_params.out";
+   std::string paramFileName = "bench_params.out";
    std::ofstream outParamFile(paramFileName.c_str());
 
    outParamFile << std::boolalpha;
@@ -458,6 +462,8 @@ void PrintTestParams(TestParams &params) {
    outParamFile << "Using Defaults:\t\t\t" << params.useDefaultParams << std::endl;  
    outParamFile << "Printing Device Props:\t\t" << params.printDevProps << std::endl;
    outParamFile << "Device Property File:\t\t" << params.devPropFile << std::endl;
+   outParamFile << "Topology File:\t\t\t" << params.topoFile << std::endl;  
+   outParamFile << "Running topology aware:\t\t" << params.runTopoAware << std::endl;
    outParamFile << "Device Count:\t\t\t" << params.nDevices << std::endl;
    outParamFile << "------------------------------------------------------------" << std::endl; 
    outParamFile << "Run Memory Overhead Test:\t" << params.runMemoryOverheadTest << std::endl;
@@ -512,6 +518,8 @@ void SetDefaultParams(TestParams &params) {
 
    params.printDevProps = true;
    params.devPropFile = "device_info.out";
+   params.topoFile = "none";
+   params.runTopoAware = false;
 
    params.runMemoryOverheadTest = true; 
    params.runAllDevices = true;

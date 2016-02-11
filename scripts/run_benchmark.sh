@@ -38,5 +38,5 @@ sleep 2
 
 
 #plot data and save graphs
-echo -e "\n\n\e[34m\e[1mTo plot benchmark data use the python plotting script: \e[1m\e[31m$plot_script\e[0m\n"
+echo -e "\e[34m\e[1mTo plot benchmark data use the python plotting script: \e[1m\e[31m$plot_script\e[0m\n"
 
