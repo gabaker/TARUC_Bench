@@ -395,6 +395,11 @@ void ParseTestParameters(TestParams &params) {
    std::string lineStr;
    std::ifstream inFile(params.inputFile.c_str());
 
+   if (inFile.fail()) {
+      SetDefaultParams(params);      
+      return;
+   }
+
    params.useDefaultParams = false;
 
    getNextLine(inFile, lineStr); //resultsFile
@@ -512,7 +517,7 @@ void SetDefaultParams(TestParams &params) {
    params.runAllDevices = true;
    params.rangeMemOverhead[0] = 1;
    params.rangeMemOverhead[1] = 1000001;
-   params.rangeMemOverhead[2] = 10000;
+   params.rangeMemOverhead[2] = 10;
    
    params.runHostDeviceBandwidthTest = false;
    params.varyBlockSizeHD = true;

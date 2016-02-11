@@ -1,15 +1,26 @@
 CC=nvcc
-FILES=CUDA_Bandwidth
-EXE=run
-LDFLAGS=-std=c++11
-#-Xcompiler=-std=c++0x
-NONE=-lhwloc
+BENCH_FILES=CUDA_Bandwidth.cu
+NUMA_FILES=NUMA_Test.cu
+BENCH_EXE=bench
+NUMA_EXE=numa
+CFLAGS=-lpthread -Xcompiler -fopenmp -lnuma  -std=c++11
 DFLAGS=-D USING_CPP
-all:
-	$(CC) $(LDFLAGS) $(FILES).cu -o $(EXE)
+IFLAGS=-I/usr/local/cuda-7.5/samples/common/inc
+
+all: bench
+
+bench: $(BENCH_FILES) $(NUMA_FILES)
+	$(CC) $(DFLAGS) $(IFLAGS) $(CFLAGS) $(BENCH_FILES) -o $(BENCH_EXE)
+	$(CC) $(IFLAGS) $(CFLAGS) $(NUMA_FILES) -o $(NUMA_EXE)
+
+numa:
+	$(CC) $(IFLAGS) $(CFLAGS) $(NUMA_FILES) -o $(NUMA_EXE)
+
+nocpp:
+	$(CC) $(IFLAGS) $(CFLAGS) $(BENCH_FILES) -o $(BENCH_EXE)
 
 cpp:
-	$(CC) $(DFLAGS) $(LDFLAGS) $(FILES).cu -o $(EXE)
+	$(CC) $(IFLAGS) $(DFLAGS) $(CFLAGS) $(BENCH_FILES) -o $(BENCH_EXE)
 
 clean:
-	rm $(EXE) 
+	rm $(BENCH_EXE) $(NUMA_EXE)
