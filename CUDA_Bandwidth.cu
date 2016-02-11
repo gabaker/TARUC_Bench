@@ -1,93 +1,16 @@
-// in case no nclude<cuda_runtime.h>
+
+//cuda headers and helper functions
+#include<cuda_runtime.h>
 #include<cuda.h>
 #include<helper_cuda.h>
 
-// C/C++ standard includes
-#include<memory>
-#include<iostream>
-#include<stdio.h>
-#include<string>
-#include<vector>
-#include<time.h>
-#include<string>
-#include<fstream>
-#include<iostream>
-#include<ios>
-#include<vector>
-#include<unistd.h>
-
-
-#include<sys/time.h>
-//#include<chrono>
-
-#ifdef USING_CPP
-#include<chrono>
-#include<tuple>
+//benchmark header
+#ifndef BENCH_HEADER_INC
+#define BENCH_HEADER_INC
+#include "bench.h"
 #endif
-// OpenMP threading includes
-#include<omp.h>
-
-// NUMA Locality includes
-//#include<hwloc.h>
-
-#define MILLI_TO_MICRO (1.0 / 1000.0)
-#define MICRO_TO_MILLI (1000.0)
-#define NANO_TO_MILLI (1.0 / 1000000.0)
-#define NANO_TO_MICRO (1.0 / 1000.0)
-
-typedef struct TestParams {
-   std::string resultsFile;
-   std::string inputFile;
-   bool useDefaultParams;
-
-   bool printDevProps;
-   std::string devPropFile;
-
-   std::string topoFile;
-   bool runTopoAware;
-
-   int nDevices;
-
-   // Overhead memory test for allocation and deallocation of Host and Device memory
-   bool runMemoryOverheadTest;
-   bool runAllDevices;
-   long rangeMemOverhead[3]; //min, max and step size (in bytes)
- 
-   // Device-Peer PCIe Baseline bandwidth test
-   bool runHostDeviceBandwidthTest;
-   bool varyBlockSizeHD;
-   bool usePinnedHD;
-   bool runBurstHD;
-   bool runSustainedHD;
-   long rangeHostDeviceBW[3]; //min, max and step size (in bytes)
-
-   // Peer-to-peer device memory transfer bandwidth
-   bool runP2PBandwidthTest;
-   bool varyBlockSizeP2P;
-   bool runBurstP2P;
-   bool runSustainedP2P;
-   long rangeDeviceP2P[3]; //min, max and step size (in bytes)
-
-   // PCIe Congestion tests
-   bool runPCIeCongestionTest;
-
-   // CUDA kernel task scalability and load balancing
-   bool runTaskScalabilityTest;
-
-} TestParams;
-
-typedef enum
-{
-DEVICE_MALLOC,
-HOST_MALLOC,
-HOST_PINNED_MALLOC,
-DEVICE_FREE,
-HOST_FREE,
-HOST_PINNED_FREE
-} MEM_OP;
 
 void RunBandwidthTestSuite(TestParams &params);
-
 void PrintDeviceProps(cudaDeviceProp *props, TestParams &params);
 void TestMemoryOverhead(cudaDeviceProp *props, TestParams &params);
 void TestHostDeviceBandwidth(cudaDeviceProp *props, TestParams &params);
@@ -95,7 +18,6 @@ void TestP2PDeviceBandwidth(cudaDeviceProp *props, TestParams &params);
 void TestPCIeCongestion(cudaDeviceProp *props, TestParams &params);
 void TestTaskScalability(cudaDeviceProp *props, TestParams &params);
 void ParseTestParameters(TestParams &params);
-
 void SetDefaultParams(TestParams &params); 
 void GetAllDeviceProps(cudaDeviceProp *props, int dCount);
 void ResetDevices(int numToReset);
@@ -104,9 +26,51 @@ void PrintTestParams(TestParams &params);
 void getNextLine(std::ifstream &inFile, std::string &lineStr);
 void printResults(std::ofstream &outFile, std::vector<long> &steps, std::vector<std::vector<float> > &results, TestParams &params);
 
+void printStructuredTopo(SystemInfo &sysTopo) {
+
+
+}
+
+void ParseTopoFile(SystemInfo &sysTopo, TestParams &params) {
+   std::ifstream topoFile(params.topoFile);
+
+   if (topoFile.fail()) {
+      std::cout << "Failed to open topology file: " << params.topoFile << " aborting benchmark!" << std::endl;
+      exit(-1);
+   }
+
+   int numSockets = numa_num_task_nodes();
+   int totalNumPUs = numa_num_task_cpus();
+   int numPUsPerSocket = numSockets / totalNumPUs;
+
+   sysTopo.sockets.resize(numSockets);
+   for (int i = 0; i < numSockets ; ++i) {
+      sysTopo.sockets[i].PUs.resize(numPUsPerSocket);
+   }   
+   
+   std::vector<PU> logPUs;
+
+   int PUIndex = 0;
+   while (topoFile) {
+      std::string lineStr;
+      getNextLine(topoFile, lineStr);
+
+      int lineIdx = 0;
+      while (lineIdx < lineStr.size()) {
+        // if (std::isalpha(lineStr[lineIdx]))
+            
+
+      }
+  
+
+      //std::cout << lineStr << std::endl;
+   }
+
+}
+
 int main (int argc, char **argv) {
    TestParams params; 
-   
+   SystemInfo sysInfo;
    std::cout << "\nStarting Multi-GPU Performance Test Suite...\n" << std::endl; 
 
    // Determine the number of recognized CUDA enabled devices
@@ -126,6 +90,9 @@ int main (int argc, char **argv) {
    
       params.inputFile = std::string(argv[1]);
       ParseTestParameters(params);
+
+      if (params.runTopoAware)
+         ParseTopoFile(sysInfo, params);
    
    } else { //Unknown input parameter list, abort test
       std::cout << "Aborting test: Incorrect number of input parameters" << std::endl;
