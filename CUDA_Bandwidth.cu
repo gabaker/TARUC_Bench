@@ -1,78 +1,48 @@
-
 //cuda headers and helper functions
 #include<cuda_runtime.h>
 #include<cuda.h>
 #include<helper_cuda.h>
 
-//benchmark header
+// Benchmark includes and defines
 #ifndef BENCH_HEADER_INC
 #define BENCH_HEADER_INC
 #include "bench.h"
 #endif
 
-void RunBandwidthTestSuite(TestParams &params);
-void PrintDeviceProps(cudaDeviceProp *props, TestParams &params);
-void TestMemoryOverhead(cudaDeviceProp *props, TestParams &params);
-void TestHostDeviceBandwidth(cudaDeviceProp *props, TestParams &params);
-void TestP2PDeviceBandwidth(cudaDeviceProp *props, TestParams &params);
-void TestPCIeCongestion(cudaDeviceProp *props, TestParams &params);
-void TestTaskScalability(cudaDeviceProp *props, TestParams &params);
-void ParseTestParameters(TestParams &params);
-void SetDefaultParams(TestParams &params); 
+// BenchParams class definition
+#ifndef PARAM_CLASS_INC
+#include "params.h"
+#define PARAM_CLASS_INC
+#endif
+
+// SystemTopo class definition
+#ifndef TOPOLOGY_CLASS_INC
+#include "topology.h"
+#define TOPOLOGY_CLASS_INC
+#endif
+
+//Benchmark Tests
+void RunBandwidthTestSuite(BenchParams &params);
+void TestMemoryOverhead(cudaDeviceProp *props, BenchParams &params);
+void TestHostDeviceBandwidth(cudaDeviceProp *props, BenchParams &params);
+void TestP2PDeviceBandwidth(cudaDeviceProp *props, BenchParams &params);
+void TestPCIeCongestion(cudaDeviceProp *props, BenchParams &params);
+void TestTaskScalability(cudaDeviceProp *props, BenchParams &params);
+
+//Device Properties
 void GetAllDeviceProps(cudaDeviceProp *props, int dCount);
+void PrintDeviceProps(cudaDeviceProp *props, BenchParams &params);
 void ResetDevices(int numToReset);
-void SetDefaultParams(TestParams &params); 
-void PrintTestParams(TestParams &params);
-void getNextLine(std::ifstream &inFile, std::string &lineStr);
-void printResults(std::ofstream &outFile, std::vector<long> &steps, std::vector<std::vector<float> > &results, TestParams &params);
 
-void printStructuredTopo(SystemInfo &sysTopo) {
-
-
-}
-
-void ParseTopoFile(SystemInfo &sysTopo, TestParams &params) {
-   std::ifstream topoFile(params.topoFile);
-
-   if (topoFile.fail()) {
-      std::cout << "Failed to open topology file: " << params.topoFile << " aborting benchmark!" << std::endl;
-      exit(-1);
-   }
-
-   int numSockets = numa_num_task_nodes();
-   int totalNumPUs = numa_num_task_cpus();
-   int numPUsPerSocket = numSockets / totalNumPUs;
-
-   sysTopo.sockets.resize(numSockets);
-   for (int i = 0; i < numSockets ; ++i) {
-      sysTopo.sockets[i].PUs.resize(numPUsPerSocket);
-   }   
-   
-   std::vector<PU> logPUs;
-
-   int PUIndex = 0;
-   while (topoFile) {
-      std::string lineStr;
-      getNextLine(topoFile, lineStr);
-
-      int lineIdx = 0;
-      while (lineIdx < lineStr.size()) {
-        // if (std::isalpha(lineStr[lineIdx]))
-            
-
-      }
-  
-
-      //std::cout << lineStr << std::endl;
-   }
-
-}
+//Results output
+void PrintResults(std::ofstream &outFile, std::vector<long> &steps, std::vector<std::vector<float> > &results, BenchParams &params);
 
 int main (int argc, char **argv) {
-   TestParams params; 
-   SystemInfo sysInfo;
+   BenchParams params;  
+   SystemTopo SysInfo;
+   
    std::cout << "\nStarting Multi-GPU Performance Test Suite...\n" << std::endl; 
-
+   
    // Determine the number of recognized CUDA enabled devices
    cudaGetDeviceCount(&(params.nDevices));
 
@@ -84,29 +54,29 @@ int main (int argc, char **argv) {
    // Setup benchmark parameters
    if (argc == 1) { //No input file, use default parameters
    
-      SetDefaultParams(params);
+      params.SetDefault();
    
    } else if (argc == 2) { //Parse input file
-   
-      params.inputFile = std::string(argv[1]);
-      ParseTestParameters(params);
+      
+      params.ParseParamFile(std::string(argv[1]));
 
       if (params.runTopoAware)
-         ParseTopoFile(sysInfo, params);
+         SysInfo.PrintTopology();
    
    } else { //Unknown input parameter list, abort test
+      
       std::cout << "Aborting test: Incorrect number of input parameters" << std::endl;
       exit(-1);
+   
    }
 
-
-   PrintTestParams(params);
+   params.PrintParams();
    RunBandwidthTestSuite(params);
 
    return 0;
 }
 
-void RunBandwidthTestSuite(TestParams &params) {
+void RunBandwidthTestSuite(BenchParams &params) {
    cudaDeviceProp *props = (cudaDeviceProp *) calloc (sizeof(cudaDeviceProp), params.nDevices);
 
    // Aquire device properties for each CUDA enabled GPU
@@ -225,7 +195,7 @@ float TimedMemOp(void **MemBlk, long NumBytes, MEM_OP TimedOp) {
          checkCudaErrors(cudaEventElapsedTime(&OpTime, start_e, stop_e));  
          break;
       default:
-         std::cout << "Error: unrecognized timed memory operation type" << std::cout; 
+         std::cout << "Error: unrecognized timed memory operation type" << std::endl; 
          break;
    }
    cudaEventDestroy(start_e);
@@ -234,7 +204,7 @@ float TimedMemOp(void **MemBlk, long NumBytes, MEM_OP TimedOp) {
    return OpTime;
 }
 
-void TestMemoryOverhead(cudaDeviceProp *props, TestParams &params) {
+void TestMemoryOverhead(cudaDeviceProp *props, BenchParams &params) {
       char *deviceMem = NULL;
       char *hostMem = NULL;
       char *hostPinnedMem = NULL;
@@ -296,11 +266,45 @@ void TestMemoryOverhead(cudaDeviceProp *props, TestParams &params) {
 
       std::string dataFileName = params.resultsFile + "_overhead.csv";
       std::ofstream overheadResultsFile(dataFileName.c_str());
-      printResults(overheadResultsFile, blockSteps, overheadData, params);
+      PrintResults(overheadResultsFile, blockSteps, overheadData, params);
 }
 
-void printResults(std::ofstream &outFile, std::vector<long> &steps, std::vector<std::vector<float> > &results, TestParams &params) {
-   //std::cout.setf(std::ios::showpoint);
+void TestHostDeviceBandwidth(cudaDeviceProp *props, BenchParams &params) {
+   std::cout << "Running host-device bandwidth test" << std::endl;
+   //printf("\nRunning bandwidth test for %s on bus %d\n", props[0].name, props[0].pciBusID);
+}
+
+void TestP2PDeviceBandwidth(cudaDeviceProp *props, BenchParams &params){
+   std::cout << "Running P2P device bandwidth test" << std::endl;
+}
+
+void TestPCIeCongestion(cudaDeviceProp *props, BenchParams &params) {
+   std::cout << "Running PCIe congestion test" << std::endl;
+}
+
+void TestTaskScalability(cudaDeviceProp *props, BenchParams &params) {
+   std::cout << "Running task scalability test" << std::endl;
+}
+
+// Prints the device properties out to file based named depending on the 
+void PrintDeviceProps(cudaDeviceProp *props, BenchParams &params) {
+   std::cout << "\nSee " << params.devPropFile << " for information about your device's properties." << std::endl; 
+
+   std::ofstream deviceProps(params.devPropFile.c_str());
+
+   deviceProps << "-------- Device Properties --------" << std::endl;
+
+   for (int i = 0; i < params.nDevices; i++) {
+      deviceProps << props[i].name << std::endl;
+
+
+   }
+   deviceProps << "-----------------------------------" << std::endl;
+
+   deviceProps.close();
+}
+
+void PrintResults(std::ofstream &outFile, std::vector<long> &steps, std::vector<std::vector<float> > &results, BenchParams &params) {
    
    if (!outFile.is_open()) {
       std::cout << "Failed to open file to print results" << std::endl;
@@ -319,212 +323,6 @@ void printResults(std::ofstream &outFile, std::vector<long> &steps, std::vector<
       }
       outFile << std::endl;
    }
-}
-
-void TestHostDeviceBandwidth(cudaDeviceProp *props, TestParams &params) {
-   std::cout << "Running host-device bandwidth test" << std::endl;
-   //printf("\nRunning bandwidth test for %s on bus %d\n", props[0].name, props[0].pciBusID);
-}
-
-void TestP2PDeviceBandwidth(cudaDeviceProp *props, TestParams &params){
-   std::cout << "Running P2P device bandwidth test" << std::endl;
-}
-
-void TestPCIeCongestion(cudaDeviceProp *props, TestParams &params) {
-   std::cout << "Running PCIe congestion test" << std::endl;
-}
-
-void TestTaskScalability(cudaDeviceProp *props, TestParams &params) {
-   std::cout << "Running task scalability test" << std::endl;
-}
-
-void getNextLine(std::ifstream &inFile, std::string &lineStr) {
-   // get lines of the input file untill the first character of the line is not a dash
-   // dashes represent comments
-   do { 
-      if (inFile) 
-         std::getline(inFile, lineStr);
-   } while (inFile && lineStr[0] == '-');
-}
-
-bool getNextLineBool(std::ifstream &inFile, std::string &lineStr) {
-   do { 
-      if (inFile) 
-         std::getline(inFile, lineStr);
-   } while (inFile && lineStr[0] == '-');
-
-   return ((lineStr.find("alse") >= lineStr.length()) ? true : false); 
-}
-
-// Function for parsing user provided input file. 
-// Users must adhere to input file structure provided 
-// in the sample input file to insure correct parsing
-void ParseTestParameters(TestParams &params) {
-   std::string lineStr;
-   std::ifstream inFile(params.inputFile.c_str());
-
-   if (inFile.fail()) {
-      SetDefaultParams(params);      
-      return;
-   }
-
-   params.useDefaultParams = false;
-
-   getNextLine(inFile, lineStr); //resultsFile
-   params.resultsFile = lineStr.substr(lineStr.find ('=') + 1);
-
-   params.printDevProps = getNextLineBool(inFile, lineStr); //printDeviceProps
-   getNextLine(inFile, lineStr);
-   params.devPropFile = lineStr.substr(lineStr.find ('=') + 1); //devPropFile
-   getNextLine(inFile, lineStr);
-   params.topoFile = lineStr.substr(lineStr.find ('=') + 1); //topoFile
-   params.runTopoAware = getNextLineBool(inFile, lineStr); //runTopoAware
-  
-   params.runMemoryOverheadTest = getNextLineBool(inFile, lineStr); //runMemoryOverheadTest
-   params.runAllDevices = getNextLineBool(inFile, lineStr); //runAllDevices 
-   for (int i = 0; i < 3; i++) {
-      getNextLine(inFile, lineStr);
-      int eqIdx = lineStr.find("=") + 1;
-      params.rangeMemOverhead[i] = std::atol(lineStr.substr(eqIdx).c_str());
-   }
-
-   params.runHostDeviceBandwidthTest = getNextLineBool(inFile, lineStr); //runHostDeviceBandwidthTest
-   params.varyBlockSizeHD = getNextLineBool(inFile, lineStr); //varyBlockSizeHD
-   params.usePinnedHD = getNextLineBool(inFile, lineStr); //usePinnedHD
-   params.runBurstHD = getNextLineBool(inFile, lineStr); //runBurstHD
-   params.runSustainedHD = getNextLineBool(inFile, lineStr); //runSustainedHD
-   for (int i = 0; i < 3; i++) {
-      getNextLine(inFile, lineStr);
-      int eqIdx = lineStr.find("=") + 1;
-      params.rangeHostDeviceBW[i] = std::atol(lineStr.substr(eqIdx).c_str());
-   }
-
-   params.runP2PBandwidthTest = getNextLineBool(inFile, lineStr); //runP2PBandwidthTest
-   params.varyBlockSizeP2P = getNextLineBool(inFile, lineStr); //varyBlockSizeP2P
-   params.runBurstP2P = getNextLineBool(inFile, lineStr); //runBurstHD
-   params.runSustainedP2P = getNextLineBool(inFile, lineStr); //runSustainedHD
-   for (int i = 0; i < 3; i++) {
-      getNextLine(inFile, lineStr);
-      int eqIdx = lineStr.find("=") + 1;
-      params.rangeDeviceP2P[i] = std::atol(lineStr.substr(eqIdx).c_str());
-   }
-   
-   params.runPCIeCongestionTest = getNextLineBool(inFile, lineStr); //runPCIeCongestionTest
-   params.runTaskScalabilityTest = getNextLineBool(inFile, lineStr); //runTaskScalabilityTest
-   
-}
-
-//TODO:hacky print function; fix this
-void PrintTestParams(TestParams &params) {
-
-   std::string paramFileName = "bench_params.out";
-   std::ofstream outParamFile(paramFileName.c_str());
-
-   outParamFile << std::boolalpha;
-   outParamFile << "------------------------------------------------------------" << std::endl; 
-   outParamFile << "---------------------- Test Parameters ---------------------" << std::endl; 
-   outParamFile << "------------------------------------------------------------" << std::endl; 
-   outParamFile << "Input File:\t\t\t" << params.inputFile << std::endl;
-   outParamFile << "Output file:\t\t\t" << params.resultsFile << std::endl;
-   outParamFile << "Using Defaults:\t\t\t" << params.useDefaultParams << std::endl;  
-   outParamFile << "Printing Device Props:\t\t" << params.printDevProps << std::endl;
-   outParamFile << "Device Property File:\t\t" << params.devPropFile << std::endl;
-   outParamFile << "Topology File:\t\t\t" << params.topoFile << std::endl;  
-   outParamFile << "Running topology aware:\t\t" << params.runTopoAware << std::endl;
-   outParamFile << "Device Count:\t\t\t" << params.nDevices << std::endl;
-   outParamFile << "------------------------------------------------------------" << std::endl; 
-   outParamFile << "Run Memory Overhead Test:\t" << params.runMemoryOverheadTest << std::endl;
-   outParamFile << "Use all Devices:\t\t" << params.runAllDevices << std::endl;
-   outParamFile << "Allocation Range: \t\t";
-   outParamFile << params.rangeMemOverhead[0] << "," << params.rangeMemOverhead[1];
-   outParamFile << "," << params.rangeMemOverhead[2] << " (min,max,step)" << std::endl;
-   outParamFile << "------------------------------------------------------------" << std::endl; 
-   outParamFile << "Run Host-Device Bandwidth Test:\t" << params.runHostDeviceBandwidthTest << std::endl;
-   outParamFile << "Vary Block Size:\t\t" << params.varyBlockSizeHD << std::endl;
-   outParamFile << "Use Pinned Host Mem:\t\t" << params.usePinnedHD << std::endl;
-   outParamFile << "Burst Mode:\t\t\t" << params.runBurstHD << std::endl;
-   outParamFile << "Sustained Mode:\t\t\t" << params.runSustainedHD << std::endl;
-   outParamFile << "Allocation Range:\t\t"; 
-   outParamFile << params.rangeHostDeviceBW[0] << "," << params.rangeHostDeviceBW[1] << ","; 
-   outParamFile << params.rangeHostDeviceBW[2] << " (min,max,step)" << std::endl;
-   outParamFile << "------------------------------------------------------------" << std::endl; 
-   outParamFile << "Run P2P Bandwidth Test:\t\t" << params.runP2PBandwidthTest << std::endl;
-   outParamFile << "Vary Block Size:\t\t" << params.varyBlockSizeP2P << std::endl;
-   outParamFile << "Burst Mode:\t\t\t" << params.runBurstP2P << std::endl;
-   outParamFile << "Sustained Mode:\t\t\t" << params.runSustainedP2P << std::endl;
-   outParamFile << "Allocation Range:\t\t";
-   outParamFile << params.rangeDeviceP2P[0] << "," << params.rangeDeviceP2P[1] << ",";
-   outParamFile << params.rangeDeviceP2P[2] << " (min,max,step)" << std::endl;
-   outParamFile << "------------------------------------------------------------" << std::endl; 
-   outParamFile << "Run PCIe CongestionTest:\t" << params.runPCIeCongestionTest << std::endl;
-   outParamFile << "------------------------------------------------------------" << std::endl; 
-   outParamFile << "Run Task Scalability Test:\t" << params.runTaskScalabilityTest << std::endl; 
-   outParamFile << "------------------------------------------------------------" << std::endl;    
-   outParamFile << std::noboolalpha;
-
-   //read params out to command line
-   outParamFile.close();
-   std::string contents;
-   std::ifstream inFile(paramFileName.c_str());
-   while (std::getline(inFile,contents)) {
-      std::cout << contents << std::endl;
-   } 
-   inFile.close();
-
-}
-
-// Set default device properties based on an interesting variety of tests 
-// in case no input file is provided. These values do necessarily reflect 
-// what the developer recommends to demonstrate category performance on any 
-// specific system system
-void SetDefaultParams(TestParams &params) {
-
-   params.resultsFile = "results";
-   params.inputFile = "none";
-   params.useDefaultParams = true;
-
-   params.printDevProps = true;
-   params.devPropFile = "device_info.out";
-   params.topoFile = "none";
-   params.runTopoAware = false;
-
-   params.runMemoryOverheadTest = true; 
-   params.runAllDevices = true;
-   params.rangeMemOverhead[0] = 1;
-   params.rangeMemOverhead[1] = 1000001;
-   params.rangeMemOverhead[2] = 10;
-   
-   params.runHostDeviceBandwidthTest = false;
-   params.varyBlockSizeHD = true;
-   params.usePinnedHD = true;
-   params.runBurstHD  = true;
-   params.runSustainedHD = true;
-   params.rangeHostDeviceBW[0] = 1;
-   params.rangeHostDeviceBW[1] = 1024;
-   params.rangeHostDeviceBW[2] = 2; 
-  
-   params.runP2PBandwidthTest = false;
-   params.varyBlockSizeP2P = true;
-   params.runBurstP2P = true;
-   params.runSustainedP2P = true;
-   params.rangeDeviceP2P[0] = 1;
-   params.rangeDeviceP2P[1] = 2024;
-   params.rangeDeviceP2P[2] = 2;
-   
-   params.runPCIeCongestionTest = false;
-   
-   params.runTaskScalabilityTest = false;
-}
-
-// Prints the device properties out to file based named depending on the 
-void PrintDeviceProps(cudaDeviceProp *props, TestParams &params) {
-   std::cout << "\nSee " << params.devPropFile << " for information about your device's properties." << std::endl; 
-
-   std::ofstream deviceProps(params.devPropFile.c_str());
-
-   deviceProps << "Device Properties:" << std::endl;
-
-   deviceProps.close();
 }
 
 // Creates an array of cudaDeviceProp structs with populated data

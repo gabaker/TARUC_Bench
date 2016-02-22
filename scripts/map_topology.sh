@@ -7,17 +7,30 @@ then
 fi
 
 cpuinfo_dir="/proc/cpuinfo"
-cpu_dev_dir="/sys/devices/system/cpu"
+system_dir="/sys/devices/system"
+cpu_dev_dir="$system_dir/cpu"
+node_dir="$system_dir/node"
 
+
+node_online="$(cat $node_dir/online)"
+node_present="$(cat $node_dir/possible)"
 pu_online="$(cat $cpu_dev_dir/online)"
 pu_present="$(cat $cpu_dev_dir/present)"
+
 delim_idx=`expr index "$pu_present" "-"`
+min_cpu_id=${pu_online:0:(($delim_idx - 1))}
+max_cpu_id=${pu_online:$(($delim_idx))}
 
-min_cpu_id=${pu_present:0:(($delim_idx - 1))}
-max_cpu_id=${pu_present:$(($delim_idx))}
+delim_idx=`expr index "$node_present" "-"`
+min_node_id=${node_online:0:(($delim_idx - 1))}
+max_node_id=${node_online:$(($delim_idx))}
 
+
+echo    "$(($max_cpu_id - $min_cpu_id + 1))|$(($max_node_id - $min_node_id + 1))"
 echo    "------------------------------------- System Topology -------------------------------------------"
 echo    "-                                                                                               -"
+echo -e "-                    CPU/Socket/Node count: $((max_node_id - min_node_id + 1))\t\t\t\t\t\t        -"
+echo -e "-                    CPU/Socket/Node ID list: $node_online\t\t                                -"
 echo -e "-                    Min PU ID: $min_cpu_id Max PU ID: $max_cpu_id\t\t\t\t                        -"
 echo    "-                    Polling Device Info from: /proc/cpuinfo                                    -"
 echo    "-                                              /sys/devices/system/cpu                          -"
@@ -38,7 +51,9 @@ echo    "-                                        other PUs at a given topology 
 echo    "-                                                                                               -"
 echo    "-                                                                                               -"
 echo    "-------------------------------------------------------------------------------------------------"
-echo -e "| PU ID\t|Core ID| CPU Num Cores\t|   Socket ID\t|   Sib Count\t| Core Siblings\t| CPU Siblings\t|"
+echo    "------------------------------------ Computational Structure ------------------------------------"
+echo    "-------------------------------------------------------------------------------------------------"
+echo -e "- PU ID\t|Core ID| CPU Num Cores\t|   Socket ID\t|   Sib Count\t| Core Siblings\t| CPU Siblings\t-"
 
 line_num=0
 while IFS= read -r LINE; 
@@ -75,4 +90,7 @@ do
    fi
 done < $cpuinfo_dir
 
+echo    "-------------------------------------------------------------------------------------------------"
+echo    "--------------------------------------- Memory Hierarchy ----------------------------------------"
+echo    "-                                                                                               -"
 echo    "-------------------------------------------------------------------------------------------------"
