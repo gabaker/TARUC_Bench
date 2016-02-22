@@ -12,6 +12,7 @@
 #include<vector>
 #include<unistd.h>
 #include<sys/time.h>
+#include<sstream>
 
 //newer c++ timing lib
 #ifdef USING_CPP
@@ -31,77 +32,6 @@
 #define NANO_TO_MILLI (1.0 / 1000000.0)
 #define NANO_TO_MICRO (1.0 / 1000.0)
 
-typedef struct TestParams {
-
-   std::string resultsFile;
-   std::string inputFile;
-   bool useDefaultParams;
-
-   bool printDevProps;
-   std::string devPropFile;
-
-   std::string topoFile;
-   bool runTopoAware;
-
-   int nDevices;
-
-   // Overhead memory test for allocation and deallocation of Host and Device memory
-   bool runMemoryOverheadTest;
-   bool runAllDevices;
-   long rangeMemOverhead[3]; //min, max and step size (in bytes)
- 
-   // Device-Peer PCIe Baseline bandwidth test
-   bool runHostDeviceBandwidthTest;
-   bool varyBlockSizeHD;
-   bool usePinnedHD;
-   bool runBurstHD;
-   bool runSustainedHD;
-   long rangeHostDeviceBW[3]; //min, max and step size (in bytes)
-
-   // Peer-to-peer device memory transfer bandwidth
-   bool runP2PBandwidthTest;
-   bool varyBlockSizeP2P;
-   bool runBurstP2P;
-   bool runSustainedP2P;
-   long rangeDeviceP2P[3]; //min, max and step size (in bytes)
-
-   // PCIe Congestion tests
-   bool runPCIeCongestionTest;
-
-   // CUDA kernel task scalability and load balancing
-   bool runTaskScalabilityTest;
-
-} TestParams;
-
-typedef struct PU {
-
-   int puID;
-   int coreID;
-   int cpuID;
-   int numCoreSiblings;
-   int numCPUSiblings;
-   std::vector<int> coreSiblings;
-   std::vector<int> cpuSiblings;
-
-} PUInfo;
-
-typedef struct CPU {
-
-   int physical_ID;
-   int numCores;
-   int numPUs; 
-   std::vector<PU> PUs;
-
-} SocketInfo;
-
-typedef struct SystemInfo {
-
-   int numCPUs;
-   std::vector<CPU> sockets;
-   int numPUs;
-
-} System;
-
 typedef enum {
    DEVICE_MALLOC,
    HOST_MALLOC,
@@ -110,4 +40,14 @@ typedef enum {
    HOST_FREE,
    HOST_PINNED_FREE
 } MEM_OP;
+
+#ifndef PARAM_CLASS_INC
+#include "params.h"
+#define PARAM_CLASS_INC
+#endif
+
+#ifndef TOPOLOGY_CLASS_INC
+#include "topology.h"
+#define TOPOLOGY_CLASS_INC
+#endif
 
