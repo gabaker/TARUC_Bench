@@ -22,12 +22,12 @@
 #endif
 
 //Benchmark Tests
-void RunBandwidthTestSuite(BenchParams &params);
-void TestMemoryOverhead(cudaDeviceProp *props, BenchParams &params);
-void TestHostDeviceBandwidth(cudaDeviceProp *props, BenchParams &params);
-void TestP2PDeviceBandwidth(cudaDeviceProp *props, BenchParams &params);
-void TestPCIeCongestion(cudaDeviceProp *props, BenchParams &params);
-void TestTaskScalability(cudaDeviceProp *props, BenchParams &params);
+void RunBandwidthTestSuite(BenchParams &params, SystemTopo &topo);
+void TestMemoryOverhead(cudaDeviceProp *props, BenchParams &params, SystemTopo &topo);
+void TestHostDeviceBandwidth(cudaDeviceProp *props, BenchParams &params, SystemTopo &topo);
+void TestP2PDeviceBandwidth(cudaDeviceProp *props, BenchParams &params, SystemTopo &topo);
+void TestPCIeCongestion(cudaDeviceProp *props, BenchParams &params, SystemTopo &topo);
+void TestTaskScalability(cudaDeviceProp *props, BenchParams &params, SystemTopo &topo);
 
 //Device Properties
 void GetAllDeviceProps(cudaDeviceProp *props, int dCount);
@@ -39,7 +39,7 @@ void PrintResults(std::ofstream &outFile, std::vector<long> &steps, std::vector<
 
 int main (int argc, char **argv) {
    BenchParams params;  
-   SystemTopo SysInfo;
+   SystemTopo topo;
    
    std::cout << "\nStarting Multi-GPU Performance Test Suite...\n" << std::endl; 
    
@@ -61,7 +61,7 @@ int main (int argc, char **argv) {
       params.ParseParamFile(std::string(argv[1]));
 
       if (params.runTopoAware)
-         SysInfo.PrintTopology();
+         topo.PrintTopology();
    
    } else { //Unknown input parameter list, abort test
       
@@ -71,12 +71,12 @@ int main (int argc, char **argv) {
    }
 
    params.PrintParams();
-   RunBandwidthTestSuite(params);
+   RunBandwidthTestSuite(params, topo);
 
    return 0;
 }
 
-void RunBandwidthTestSuite(BenchParams &params) {
+void RunBandwidthTestSuite(BenchParams &params, SystemTopo &topo) {
    cudaDeviceProp *props = (cudaDeviceProp *) calloc (sizeof(cudaDeviceProp), params.nDevices);
 
    // Aquire device properties for each CUDA enabled GPU
@@ -84,31 +84,31 @@ void RunBandwidthTestSuite(BenchParams &params) {
 
    if (params.runMemoryOverheadTest != false ) {
       
-      TestMemoryOverhead(props, params);
+      TestMemoryOverhead(props, params, topo);
    
    }
 
    if (params.runHostDeviceBandwidthTest != false) {
 
-      TestHostDeviceBandwidth(props, params);
+      TestHostDeviceBandwidth(props, params, topo);
 
    }
 
    if (params.runP2PBandwidthTest != false) {  
       
-      TestP2PDeviceBandwidth(props, params);
+      TestP2PDeviceBandwidth(props, params, topo);
    
    }
 
    if (params.runPCIeCongestionTest != false) {
 
-      TestPCIeCongestion(props, params);
+      TestPCIeCongestion(props, params, topo);
 
    }
 
    if (params.runTaskScalabilityTest != false) { 
 
-      TestTaskScalability(props, params);
+      TestTaskScalability(props, params, topo);
 
    }
 
@@ -204,7 +204,8 @@ float TimedMemOp(void **MemBlk, long NumBytes, MEM_OP TimedOp) {
    return OpTime;
 }
 
-void TestMemoryOverhead(cudaDeviceProp *props, BenchParams &params) {
+//TODO: add numa awareness and pin threads to different sockets for runs
+void TestMemoryOverhead(cudaDeviceProp *props, BenchParams &params, SystemTopo &topo) {
       char *deviceMem = NULL;
       char *hostMem = NULL;
       char *hostPinnedMem = NULL;
@@ -221,68 +222,76 @@ void TestMemoryOverhead(cudaDeviceProp *props, BenchParams &params) {
       // Memory overhead test will run for each device utilizing the cudaMalloc and cudaFree functions
       // on the first iteration of the look, assuming there is atleast one device, the host will run the 
       // pinned and un-pinned memory tests
-      for (int currDev = 0; currDev < nDevices; currDev++) {
-         checkCudaErrors(cudaSetDevice(currDev));
- 
-         std::vector<float> chunkData;
-         long stepNum = 0;
-         long stepSize = params.rangeMemOverhead[0];// / params.rangeMemOverhead[2];
-         //stepSize = (stepSize) ? stepSize : params.rangeMemOverhead[0]; 
-         for ( long chunkSize = params.rangeMemOverhead[0]; 
-               chunkSize <= params.rangeMemOverhead[1]; 
-               chunkSize += stepSize) { 
+      for (int numaIdx = 0; numaIdx < topo.NumNodes(); numaIdx++) { 
+         topo.PinNumaNode(numaIdx);
+         
+         for (int socketIdx = 0; socketIdx < topo.NumSockets(); socketIdx++) {
+            topo.PinSocket(socketIdx);
+         
+            for (int currDev = 0; currDev < nDevices; currDev++) {
+               checkCudaErrors(cudaSetDevice(currDev));
+        
+               std::vector<float> chunkData;
+               long stepNum = 0;
+               long stepSize = params.rangeMemOverhead[0];// / params.rangeMemOverhead[2];
+               //stepSize = (stepSize) ? stepSize : params.rangeMemOverhead[0]; 
+               for ( long chunkSize = params.rangeMemOverhead[0]; 
+                     chunkSize <= params.rangeMemOverhead[1]; 
+                     chunkSize += stepSize) { 
 
-            if (currDev == 0) {
-               blockSteps.push_back(chunkSize); 
-               //CASE 1: Host Pinned Memory Overhead
-               chunkData.push_back(TimedMemOp((void **) &hostPinnedMem, chunkSize, HOST_PINNED_MALLOC));
-               chunkData.push_back(TimedMemOp((void **) &hostPinnedMem, 0, HOST_PINNED_FREE)); 
-               //CASE 2: Host UnPinned Memory Overhead
-               chunkData.push_back(TimedMemOp((void **) &hostMem, 0, HOST_FREE));
-               chunkData.push_back(TimedMemOp((void **) &hostMem, chunkSize, HOST_MALLOC));
-            }
-            // CASE 3: Allocation of device memory  
-            chunkData.push_back(TimedMemOp((void **) &deviceMem, chunkSize, DEVICE_MALLOC));
-            // CASE 4: DeAllocation of device memory 
-            chunkData.push_back(TimedMemOp((void **) &deviceMem, 0, DEVICE_FREE));
-            
-            //Add device/host run data to correct location of data vector
-            if (currDev == 0) {
-               overheadData.push_back(chunkData); 
-            } else {
-               overheadData[stepNum].push_back(chunkData[0]);
-               overheadData[stepNum].push_back(chunkData[1]);
-            }
-            chunkData.clear(); //clear chunkData for next mem step 
+                  if (currDev == 0) {
+                     blockSteps.push_back(chunkSize); 
+                     //CASE 1: Host Pinned Memory Overhead
+                     chunkData.push_back(TimedMemOp((void **) &hostPinnedMem, chunkSize, HOST_PINNED_MALLOC));
+                     chunkData.push_back(TimedMemOp((void **) &hostPinnedMem, 0, HOST_PINNED_FREE)); 
+                     //CASE 2: Host UnPinned Memory Overhead
+                     chunkData.push_back(TimedMemOp((void **) &hostMem, 0, HOST_FREE));
+                     chunkData.push_back(TimedMemOp((void **) &hostMem, chunkSize, HOST_MALLOC));
+                  }
+                  // CASE 3: Allocation of device memory  
+                  chunkData.push_back(TimedMemOp((void **) &deviceMem, chunkSize, DEVICE_MALLOC));
+                  // CASE 4: DeAllocation of device memory 
+                  chunkData.push_back(TimedMemOp((void **) &deviceMem, 0, DEVICE_FREE));
+                 
+                  //Add device/host run data to correct location of data vector
+                  if (currDev == 0 && numaIdx == 0 && socketIdx == 0) {
+                     overheadData.push_back(chunkData); 
+                  } else {
+                     for (int i = 0; i < chunkData.size(); i++) {
+                     overheadData[stepNum].push_back(chunkData[i]);
+                     //overheadData[stepNum].push_back(chunkData[1]);
+                     }
+                  }
+                  chunkData.clear(); //clear chunkData for next mem step 
 
-            //Move to next stepSize after every numSteps as set by the param file
-            long stride = (params.rangeMemOverhead[2] - 1) ? (params.rangeMemOverhead[2] - 1) : 1;
-            if (stepNum && (stepNum % stride) == 0) {
-               stepSize *= 2;
+                  //Move to next stepSize after every numSteps as set by the param file
+                  long stride = (params.rangeMemOverhead[2] - 1) ? (params.rangeMemOverhead[2] - 1) : 1;
+                  if (stepNum && (stepNum % stride) == 0) {
+                     stepSize *= 5;
+                  }
+                  stepNum++; 
+               }
             }
-            stepNum++;
          }
       }
-
       std::string dataFileName = params.resultsFile + "_overhead.csv";
       std::ofstream overheadResultsFile(dataFileName.c_str());
       PrintResults(overheadResultsFile, blockSteps, overheadData, params);
 }
 
-void TestHostDeviceBandwidth(cudaDeviceProp *props, BenchParams &params) {
+void TestHostDeviceBandwidth(cudaDeviceProp *props, BenchParams &params, SystemTopo &topo) {
    std::cout << "Running host-device bandwidth test" << std::endl;
-   //printf("\nRunning bandwidth test for %s on bus %d\n", props[0].name, props[0].pciBusID);
 }
 
-void TestP2PDeviceBandwidth(cudaDeviceProp *props, BenchParams &params){
+void TestP2PDeviceBandwidth(cudaDeviceProp *props, BenchParams &params, SystemTopo &topo){
    std::cout << "Running P2P device bandwidth test" << std::endl;
 }
 
-void TestPCIeCongestion(cudaDeviceProp *props, BenchParams &params) {
+void TestPCIeCongestion(cudaDeviceProp *props, BenchParams &params, SystemTopo &topo) {
    std::cout << "Running PCIe congestion test" << std::endl;
 }
 
-void TestTaskScalability(cudaDeviceProp *props, BenchParams &params) {
+void TestTaskScalability(cudaDeviceProp *props, BenchParams &params, SystemTopo &topo) {
    std::cout << "Running task scalability test" << std::endl;
 }
 
@@ -296,8 +305,28 @@ void PrintDeviceProps(cudaDeviceProp *props, BenchParams &params) {
 
    for (int i = 0; i < params.nDevices; i++) {
       deviceProps << props[i].name << std::endl;
-
-
+      deviceProps << "PCI Bus/Device/Domain ID: " <<   props[i].pciBusID << ":" <<  props[i].pciDeviceID << ":" <<  props[i].pciDomainID << std::endl; 
+/*
+      deviceProps << 
+      deviceProps << 
+      deviceProps << 
+      deviceProps << 
+      deviceProps << 
+      deviceProps << 
+      deviceProps << 
+      deviceProps << 
+      deviceProps << 
+      deviceProps << 
+      deviceProps << 
+      deviceProps << 
+      deviceProps << 
+      deviceProps << 
+      deviceProps << 
+      deviceProps << 
+      deviceProps << 
+      deviceProps << 
+      deviceProps << 
+*/
    }
    deviceProps << "-----------------------------------" << std::endl;
 

@@ -5,6 +5,6 @@ then
    cd ..
 fi
 
-rm *.png 
-rm *.csv 
+rm ./results/*.png 
+rm ./results/*.csv 
 
