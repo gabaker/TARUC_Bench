@@ -40,3 +40,7 @@ sleep 2
 #plot data and save graphs
 echo -e "\e[34m\e[1mTo plot benchmark data use the python plotting script: \e[1m\e[31m$plot_script\e[0m\n"
 
+mkdir results
+
+python ${PWD}/scripts/plot_overhead.py overhead_results.csv 2 2 2
+
