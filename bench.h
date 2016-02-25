@@ -1,3 +1,8 @@
+//cuda headers and helper functions
+#include<cuda_runtime.h>
+#include<cuda.h>
+#include<helper_cuda.h>
+
 // C/C++ standard includes
 #include<memory>
 #include<iostream>

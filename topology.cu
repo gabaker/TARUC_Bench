@@ -9,13 +9,6 @@ void SystemTopo::PinNumaNode(int nodeIdx) {
 
    hwloc_nodeset_t nodeSet = node->nodeset;
 
-  /* char *str;
-   hwloc_bitmap_asprintf(&str, nodeSet);
-
-   std::cout << str << std::endl;
-
-   free(str);*/
-   //std::cout << hwloc_get_api_version() << std::endl;
    hwloc_set_membind_nodeset(topology, nodeSet, HWLOC_MEMBIND_BIND, HWLOC_MEMBIND_NOCPUBIND | HWLOC_MEMBIND_THREAD);
 
 }
@@ -37,8 +30,7 @@ void SystemTopo::PinPUBySocket(int socketIdx, int puIdx) {
 
 }*/
 
-void SystemTopo::PrintTopology() {
-
+void SystemTopo::PrintTopology(std::ofstream &OutFile) {
    int s_depth = hwloc_get_type_depth(topology, HWLOC_OBJ_SOCKET);
    int c_depth = hwloc_get_type_depth(topology, HWLOC_OBJ_CORE);
    int p_depth = hwloc_get_type_depth(topology, HWLOC_OBJ_PU);
@@ -48,28 +40,35 @@ void SystemTopo::PrintTopology() {
    hwloc_obj_t p_obj;// = hwloc_get_obj_by_depth(topology, p_depth, 0);
 
    char *str;
-   std::cout << "\n------------------------ System Topology ------------------------" << std::endl;
-   std::cout << "\tSockets:\t\t" << SocketsInSystem << std::endl; 
-   std::cout << "\tTotal Cores\t\t" << CoresInSystem << std::endl;
-   std::cout << "\tTotal PUs:\t\t" << PUsInSystem << std::endl;
-   std::cout << "\tCores Per Socket:\t" << CoresPerSocket << std::endl;
-   std::cout << "\tPUs Per Core:\t\t" << PUsPerCore << std::endl;
-   std::cout << "\tHyperthreaded:\t\t" << std::boolalpha << HyperThreaded << std::noboolalpha << std::endl;
-   std::cout << "\tSymmetric Topo:\t\t" << std::boolalpha << SymmetricTopo << std::noboolalpha << std::endl;
-   std::cout << "\n------------------------- Topology Tree -------------------------" << std::endl;
+
+   std::stringstream outTopoStr;
+
+   outTopoStr << "-----------------------------------------------------------------" << std::endl;
+   outTopoStr << "------------------------ System Topology ------------------------" << std::endl;
+   outTopoStr << "-----------------------------------------------------------------" << std::endl;
+   outTopoStr << "\tSockets:\t\t" << SocketsInSystem << std::endl; 
+   outTopoStr << "\tTotal Cores\t\t" << CoresInSystem << std::endl;
+   outTopoStr << "\tTotal PUs:\t\t" << PUsInSystem << std::endl;
+   outTopoStr << "\tCores Per Socket:\t" << CoresPerSocket << std::endl;
+   outTopoStr << "\tPUs Per Core:\t\t" << PUsPerCore << std::endl;
+   outTopoStr << "\tHyperthreaded:\t\t" << std::boolalpha << HyperThreaded << std::noboolalpha << std::endl;
+   outTopoStr << "\tSymmetric Topology:\t" << std::boolalpha << SymmetricTopo << std::noboolalpha << std::endl;
+   outTopoStr << "-----------------------------------------------------------------" << std::endl;
+   outTopoStr << "------------------------- Topology Tree -------------------------" << std::endl;
+   outTopoStr << "-----------------------------------------------------------------" << std::endl;
    
    int m_depth = hwloc_get_type_depth(topology, HWLOC_OBJ_MACHINE); 
    hwloc_obj_t m_obj = hwloc_get_obj_by_depth(topology, m_depth, 0);
 
    hwloc_bitmap_asprintf(&str, m_obj->cpuset);
-   std::cout << "Machine: " << "P#" << m_obj->os_index << " CPUSET=" << str << std::endl; 
+   outTopoStr << "Machine: " << "P#" << m_obj->os_index << " CPUSET=" << str << std::endl; 
    free(str); 
    
    for (int sNum = 0; sNum < SocketsInSystem; sNum++) {
       s_obj = hwloc_get_obj_by_depth(topology, s_depth, sNum);
       
       hwloc_bitmap_asprintf(&str, s_obj->cpuset);
-      std::cout << "\tSocket: " << s_obj->os_index << " " << str << std::endl;
+      outTopoStr << "\tSocket: " << s_obj->os_index << " " << str << std::endl;
       free(str);
      
       for (int cNum = 0; cNum < SocketsInSystem * CoresPerSocket; cNum++) {    
@@ -77,7 +76,7 @@ void SystemTopo::PrintTopology() {
          
          if (hwloc_obj_is_in_subtree(topology, c_obj, s_obj)) {  
             hwloc_bitmap_asprintf(&str, c_obj->cpuset);
-            std::cout << "\t\tCore:" << " L#" << c_obj->logical_index << " P#" << c_obj->os_index << " CPUSET=" << str << std::endl;
+            outTopoStr << "\t\tCore:" << " L#" << c_obj->logical_index << " P#" << c_obj->os_index << " CPUSET=" << str << std::endl;
             free(str);
       
             for (int pNum = 0; pNum < SocketsInSystem * PUsPerCore * CoresPerSocket; pNum++) {
@@ -85,19 +84,19 @@ void SystemTopo::PrintTopology() {
 
                if (hwloc_obj_is_in_subtree(topology, p_obj, c_obj)) {  
                   hwloc_bitmap_asprintf(&str, p_obj->cpuset); 
-                  std::cout << "\t\t\tPU:" << " L#" << p_obj->logical_index << " P#" << p_obj->os_index << " CPUSET=" << str << std::endl;
+                  outTopoStr << "\t\t\tPU:" << " L#" << p_obj->logical_index << " P#" << p_obj->os_index << " CPUSET=" << str << std::endl;
                   free(str);
                }
             }
          }
       }
-      //for (int dNum = 0; dNum <  
-      //   hwloc_bitmap_asprintf(&str, p_obj->cpuset); 
-      //   std::cout << "\t\t\tPU:" << " L#" << p_obj->logical_index << " P#" << p_obj->os_index << " CPUSET=" << str << std::endl;
-      //}
    }
-   //std::cout << hwloc_get_nobj_by
-   //std::cout << "-----------------------------------------------------------------" << std::endl;
+
+   std::cout << outTopoStr.str();
+   if (OutFile.is_open()) {
+      OutFile << NodesInSystem << "\n" << SocketsInSystem << "\n" << NumGPUs << std::endl;
+      OutFile << outTopoStr.str();
+   }
 }
 
 void SystemTopo::ParseTopology() {
@@ -118,6 +117,8 @@ void SystemTopo::ParseTopology() {
    
    HyperThreaded = (PUsPerCore != 1) ? true : false;
    SymmetricTopo = (hwloc_get_root_obj(topology)->symmetric_subtree != 0) ? true : false;
+
+   checkCudaErrors(cudaGetDeviceCount(&NumGPUs));
    
 }
 

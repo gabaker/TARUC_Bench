@@ -7,6 +7,6 @@ then
 fi
 
 ./scripts/clean_results.sh
-rm *.out
-rm topology.in
+rm ./results/*.out
+rm ./results/topology.in
 make clean

@@ -96,7 +96,7 @@ void BenchParams::SetDefault() {
    printDevProps = true;
    devPropFile = "device_info.out";
    topoFile = "none";
-   runTopoAware = false;
+   runTopoAware = true;
 
    runMemoryOverheadTest = true; 
    runAllDevices = true;
@@ -128,11 +128,10 @@ void BenchParams::SetDefault() {
 
 void BenchParams::PrintParams() {
    std::stringstream outParamStr;
-
    outParamStr << std::boolalpha;
-   outParamStr << "\n------------------------------------------------------------" << std::endl; 
-   outParamStr << "---------------------- Test Parameters ---------------------" << std::endl; 
-   outParamStr << "------------------------------------------------------------" << std::endl; 
+   outParamStr << "-----------------------------------------------------------------" << std::endl; 
+   outParamStr << "-------------------------- Test Parameters ----------------------" << std::endl; 
+   outParamStr << "-----------------------------------------------------------------" << std::endl; 
    outParamStr << "Input File:\t\t\t" << inputFile << std::endl;
    outParamStr << "Output file:\t\t\t" << resultsFile << std::endl;
    outParamStr << "Using Defaults:\t\t\t" << useDefaultParams << std::endl;  
@@ -141,13 +140,13 @@ void BenchParams::PrintParams() {
    outParamStr << "Topology File:\t\t\t" << topoFile << std::endl;  
    outParamStr << "Running topology aware:\t\t" << runTopoAware << std::endl;
    outParamStr << "Device Count:\t\t\t" << nDevices << std::endl;
-   outParamStr << "------------------------------------------------------------" << std::endl; 
+   outParamStr << "-----------------------------------------------------------------" << std::endl; 
    outParamStr << "Run Memory Overhead Test:\t" << runMemoryOverheadTest << std::endl;
    outParamStr << "Use all Devices:\t\t" << runAllDevices << std::endl;
    outParamStr << "Allocation Range: \t\t";
    outParamStr << rangeMemOverhead[0] << "," << rangeMemOverhead[1];
    outParamStr << "," << rangeMemOverhead[2] << " (min,max,step)" << std::endl;
-   outParamStr << "------------------------------------------------------------" << std::endl; 
+   outParamStr << "-----------------------------------------------------------------" << std::endl; 
    outParamStr << "Run Host-Device Bandwidth Test:\t" << runHostDeviceBandwidthTest << std::endl;
    outParamStr << "Vary Block Size:\t\t" << varyBlockSizeHD << std::endl;
    outParamStr << "Use Pinned Host Mem:\t\t" << usePinnedHD << std::endl;
@@ -156,7 +155,7 @@ void BenchParams::PrintParams() {
    outParamStr << "Allocation Range:\t\t"; 
    outParamStr << rangeHostDeviceBW[0] << "," << rangeHostDeviceBW[1] << ","; 
    outParamStr << rangeHostDeviceBW[2] << " (min,max,step)" << std::endl;
-   outParamStr << "------------------------------------------------------------" << std::endl; 
+   outParamStr << "-----------------------------------------------------------------" << std::endl; 
    outParamStr << "Run P2P Bandwidth Test:\t\t" << runP2PBandwidthTest << std::endl;
    outParamStr << "Vary Block Size:\t\t" << varyBlockSizeP2P << std::endl;
    outParamStr << "Burst Mode:\t\t\t" << runBurstP2P << std::endl;
@@ -164,18 +163,18 @@ void BenchParams::PrintParams() {
    outParamStr << "Allocation Range:\t\t";
    outParamStr << rangeDeviceP2P[0] << "," << rangeDeviceP2P[1] << ",";
    outParamStr << rangeDeviceP2P[2] << " (min,max,step)" << std::endl;
-   outParamStr << "------------------------------------------------------------" << std::endl; 
+   outParamStr << "-----------------------------------------------------------------" << std::endl; 
    outParamStr << "Run PCIe CongestionTest:\t" << runPCIeCongestionTest << std::endl;
-   outParamStr << "------------------------------------------------------------" << std::endl; 
+   outParamStr << "-----------------------------------------------------------------" << std::endl; 
    outParamStr << "Run Task Scalability Test:\t" << runTaskScalabilityTest << std::endl; 
-   outParamStr << "------------------------------------------------------------\n" << std::endl;    
+   outParamStr << "-----------------------------------------------------------------" << std::endl; 
    outParamStr << std::noboolalpha;
 
    //Print benchmark parameters to string
    std::cout << outParamStr.str();
 
    // Print benchmark parameters to output file
-   std::string paramFileName = "bench_params.out";
+   std::string paramFileName = "./results/bench_params.out";
    std::ofstream outParamFile(paramFileName.c_str());
    outParamFile << outParamStr << std::endl;
 

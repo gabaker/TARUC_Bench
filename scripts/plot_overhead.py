@@ -52,7 +52,6 @@ for idx in range(0, numCols):
 # CASE 2: each NUMA node, each CPU, all devices
 # CASE 3: each NUMA node, each CPU, each device
 # CASE 4: all NUMA nodes, all CPUs, no devices
-print "" + str(numNumaNodes) + "\n"
 for node in range(0, numNumaNodes):
    for cpu in range(0, numSockets):
       cpuIdx = ((numDevices + 2) * cpu) + ((numDevices + 2) * numSockets * node)

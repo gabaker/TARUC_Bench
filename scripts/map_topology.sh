@@ -26,7 +26,7 @@ min_node_id=${node_online:0:(($delim_idx - 1))}
 max_node_id=${node_online:$(($delim_idx))}
 
 
-echo    "$(($max_cpu_id - $min_cpu_id + 1))|$(($max_node_id - $min_node_id + 1))"
+#echo    "$(($max_cpu_id - $min_cpu_id + 1))|$(($max_node_id - $min_node_id + 1))"
 echo    "------------------------------------- System Topology -------------------------------------------"
 echo    "-                                                                                               -"
 echo -e "-                    CPU/Socket/Node count: $((max_node_id - min_node_id + 1))\t\t\t\t\t\t        -"

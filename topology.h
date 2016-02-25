@@ -5,7 +5,6 @@
 #include "bench.h"
 #endif
 
-
 #ifndef TOPOLOGY_CLASS_INC
 #define TOPOLOGY_CLASS_INC
 class SystemTopo
@@ -17,8 +16,7 @@ class SystemTopo
       //useful values extrapolated from hwloc topology
 
       void GetTopology(hwloc_topology_t &dupTopology);
-      void PrintTopology();
-      
+      void PrintTopology(std::ofstream &OutFile);
 
       //Topology pinning - numa and cpuset
       void PinNumaNode(int nodeIdx);
@@ -58,6 +56,7 @@ class SystemTopo
       int CoresInSystem;
       int CoresPerSocket;
       int PUsPerCore;
+      int NumGPUs;
 
       // Structure types
       bool HyperThreaded;

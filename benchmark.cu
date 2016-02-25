@@ -1,7 +1,3 @@
-//cuda headers and helper functions
-#include<cuda_runtime.h>
-#include<cuda.h>
-#include<helper_cuda.h>
 
 // Benchmark includes and defines
 #ifndef BENCH_HEADER_INC
@@ -41,7 +37,7 @@ int main (int argc, char **argv) {
    BenchParams params;  
    SystemTopo topo;
    
-   std::cout << "\nStarting Multi-GPU Performance Test Suite...\n" << std::endl; 
+   std::cout << "Starting Multi-GPU Performance Test Suite...\n" << std::endl; 
    
    // Determine the number of recognized CUDA enabled devices
    cudaGetDeviceCount(&(params.nDevices));
@@ -59,16 +55,18 @@ int main (int argc, char **argv) {
    } else if (argc == 2) { //Parse input file
       
       params.ParseParamFile(std::string(argv[1]));
-
-      if (params.runTopoAware)
-         topo.PrintTopology();
-   
+       
    } else { //Unknown input parameter list, abort test
       
       std::cout << "Aborting test: Incorrect number of input parameters" << std::endl;
       exit(-1);
    
    }
+
+   std::string topoFileName ="./results/topology.out";
+   std::ofstream topoFile(topoFileName.c_str());
+   if (params.runTopoAware)
+      topo.PrintTopology(topoFile);
 
    params.PrintParams();
    RunBandwidthTestSuite(params, topo);
@@ -117,7 +115,7 @@ void RunBandwidthTestSuite(BenchParams &params, SystemTopo &topo) {
       PrintDeviceProps(props, params);
    }
 
-   std::cout << "\n\nBenchmarks complete!\n" << std::endl;
+   std::cout << "\nBenchmarks complete!\n" << std::endl;
 
    free(props);
 }
@@ -131,8 +129,8 @@ float TimedMemOp(void **MemBlk, long NumBytes, MEM_OP TimedOp) {
    #endif
    
    cudaEvent_t start_e, stop_e; 
-   cudaEventCreate(&start_e);
-   cudaEventCreate(&stop_e);
+   checkCudaErrors(cudaEventCreate(&start_e));
+   checkCudaErrors(cudaEventCreate(&stop_e));
    float OpTime = 0;
   
    switch (TimedOp) {
@@ -274,7 +272,7 @@ void TestMemoryOverhead(cudaDeviceProp *props, BenchParams &params, SystemTopo &
             }
          }
       }
-      std::string dataFileName = params.resultsFile + "_overhead.csv";
+      std::string dataFileName = "./results/" + params.resultsFile + "_overhead.csv";
       std::ofstream overheadResultsFile(dataFileName.c_str());
       PrintResults(overheadResultsFile, blockSteps, overheadData, params);
 }
@@ -298,8 +296,8 @@ void TestTaskScalability(cudaDeviceProp *props, BenchParams &params, SystemTopo 
 // Prints the device properties out to file based named depending on the 
 void PrintDeviceProps(cudaDeviceProp *props, BenchParams &params) {
    std::cout << "\nSee " << params.devPropFile << " for information about your device's properties." << std::endl; 
-
-   std::ofstream deviceProps(params.devPropFile.c_str());
+   std::string devFileName = "./results/" + params.devPropFile;
+   std::ofstream deviceProps(devFileName.c_str());
 
    deviceProps << "-------- Device Properties --------" << std::endl;
 
