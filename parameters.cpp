@@ -176,7 +176,7 @@ void BenchParams::PrintParams() {
    // Print benchmark parameters to output file
    std::string paramFileName = "./results/bench_params.out";
    std::ofstream outParamFile(paramFileName.c_str());
-   outParamFile << outParamStr << std::endl;
+   outParamFile << outParamStr.str() << std::endl;
 
    //read params out to command line
    outParamFile.close();
