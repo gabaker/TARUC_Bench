@@ -10,9 +10,9 @@ if (len(sys.argv) != 5):
    print "Usage: python plot_overhead filename num_devices num_numa_nodes num_sockets"
    sys.exit() 
 
-numDevices = int(sys.argv[2])
-numNumaNodes = int(sys.argv[3])
-numSockets = int(sys.argv[4])
+numNumaNodes = int(sys.argv[2])
+numSockets = int(sys.argv[3])
+numDevices = int(sys.argv[4])
 numCols = (numDevices + 2) * (numNumaNodes * numSockets)
 
 #function for saving specific plot to file
@@ -34,7 +34,7 @@ def save_figure( figureNum, title, saveName ):
 # function for clearing all plots between graphing runs
 def clear_plot_range( begin, end):
    for plotIdx in range(begin, end + 1):
-      plt.figur(plotIdx)
+      plt.figure(plotIdx)
       plt.clf()
    return
 
@@ -246,10 +246,6 @@ for cpu in range(0, numSockets):
    plt.clf()
    save_figure("free" + str(7), "", "free_all_numa_cpu" + str(cpu) +"_all_dev")
    plt.clf()         
-
-
-
-
 
 ''' 
    plt.figure(2) 
