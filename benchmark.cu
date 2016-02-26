@@ -340,6 +340,7 @@ void PrintResults(std::ofstream &outFile, std::vector<long> &steps, std::vector<
    std::vector<std::vector<float> >::iterator iter_o;
    std::vector<float>::iterator iter_i;
    std::vector<long>::iterator iter_l = steps.begin();
+   std::cout << results[0].size() << std::endl;
    
    for (iter_o = results.begin(); iter_o != results.end(); ++iter_o) {
       outFile << std::fixed << *iter_l++ << ",";

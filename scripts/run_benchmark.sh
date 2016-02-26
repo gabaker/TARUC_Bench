@@ -53,5 +53,5 @@ nodes=$(sed '1!d' $TopoFile)
 cpus=$(sed '2!d' $TopoFile)
 gpus=$(sed '3!d' $TopoFile)
 
-python ${PWD}/scripts/plot_overhead.py ${PWD}/results/results_overhead.csv $nodes $cpus $gpus
+python2 ${PWD}/scripts/plot_overhead.py ${PWD}/results/results_overhead.csv $nodes $cpus $gpus
 
