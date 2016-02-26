@@ -92,6 +92,7 @@ void SystemTopo::PrintTopology(std::ofstream &OutFile) {
       }
    }
 
+
    std::cout << outTopoStr.str();
    if (OutFile.is_open()) {
       OutFile << NodesInSystem << "\n" << SocketsInSystem << "\n" << NumGPUs << std::endl;
