@@ -1,7 +1,7 @@
 
 //#ifndef PARAMS_CLASS_INC
 //#define PARAMS_CLASS_INC
-#include "params.h"
+#include "parameters.h"
 //#endif
 
 bool BenchParams::GetNextLineBool(std::ifstream &inFile, std::string &lineStr) {

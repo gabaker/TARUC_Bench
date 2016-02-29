@@ -43,11 +43,16 @@ typedef enum {
    HOST_PINNED_MALLOC,
    DEVICE_FREE,
    HOST_FREE,
-   HOST_PINNED_FREE
+   HOST_PINNED_FREE,
+   HOST_DEVICE_COPY,
+   DEVICE_HOST_COPY,
+   DEVICE_DEVICE_COPY,
+   HOST_HOST_COPY
+
 } MEM_OP;
 
 #ifndef PARAM_CLASS_INC
-#include "params.h"
+#include "parameters.h"
 #define PARAM_CLASS_INC
 #endif
 

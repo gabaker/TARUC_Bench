@@ -9,7 +9,7 @@ void SystemTopo::PinNumaNode(int nodeIdx) {
 
    hwloc_nodeset_t nodeSet = node->nodeset;
 
-   hwloc_set_membind_nodeset(topology, nodeSet, HWLOC_MEMBIND_BIND, HWLOC_MEMBIND_NOCPUBIND | HWLOC_MEMBIND_THREAD);
+   hwloc_set_membind_nodeset(topology, nodeSet, HWLOC_MEMBIND_BIND, HWLOC_MEMBIND_NOCPUBIND | HWLOC_MEMBIND_THREAD | HWLOC_MEMBIND_STRICT);
 
 }
 
@@ -17,7 +17,7 @@ void SystemTopo::PinNumaNode(int nodeIdx) {
 void SystemTopo::PinSocket(int socketIdx) {
    hwloc_obj_t socket = hwloc_get_obj_by_depth(topology, SocketDepth, socketIdx);
    
-   hwloc_set_cpubind(topology, socket->cpuset, HWLOC_CPUBIND_THREAD | HWLOC_CPUBIND_NOMEMBIND);
+   hwloc_set_cpubind(topology, socket->cpuset, HWLOC_CPUBIND_THREAD | HWLOC_CPUBIND_NOMEMBIND | HWLOC_CPUBIND_STRICT);
 
 }
 

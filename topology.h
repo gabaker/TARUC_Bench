@@ -2,7 +2,7 @@
 //benchmark header
 #ifndef BENCH_HEADER_INC
 #define BENCH_HEADER_INC
-#include "bench.h"
+#include "benchmark.h"
 #endif
 
 #ifndef TOPOLOGY_CLASS_INC

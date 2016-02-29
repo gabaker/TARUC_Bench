@@ -41,7 +41,7 @@ fi
 sleep 2
 
 #run bandwidth benchmark
-./bench $bench_params
+./run $bench_params
 
 #plot data and save graphs
 echo -e "\e[34m\e[1mRunning plotting scripts:\e[0m\n"

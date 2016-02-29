@@ -5,19 +5,19 @@ devPropFile=device_info.out
 topoFile=topology.in
 runTopoAware=true
 ---------------------------------
-runMemoryOverheadTest=true
+runMemoryOverheadTest=false
 runAllDevices=true
-range min=10
-range max=1000000000
+range min=5
+range max=1500
 range step=10
 --------------------------------
-runHostDeviceBandwidthTest=false
+runHostDeviceBandwidthTest=true
 varyBlockSizeHD=true
 usePinnedHD=true
 runBurstHD=true
 runSustainedHD=true
-range min=1
-range max=1000
+range min=6
+range max=1500
 range step=10
 --------------------------------
 runP2PBandwidthTest=false

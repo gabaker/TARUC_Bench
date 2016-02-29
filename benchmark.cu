@@ -2,12 +2,12 @@
 // Benchmark includes and defines
 #ifndef BENCH_HEADER_INC
 #define BENCH_HEADER_INC
-#include "bench.h"
+#include "benchmark.h"
 #endif
 
 // BenchParams class definition
 #ifndef PARAM_CLASS_INC
-#include "params.h"
+#include "parameters.h"
 #define PARAM_CLASS_INC
 #endif
 
@@ -277,12 +277,115 @@ void TestMemoryOverhead(cudaDeviceProp *props, BenchParams &params, SystemTopo &
       PrintResults(overheadResultsFile, blockSteps, overheadData, params);
 }
 
+
+
+float TimedMemCopy(void * destPtr, void *srcPtr, long numBytes, int numCopysPerStep, MEM_OP copyType) {
+
+   switch (copyType) {
+
+      case HOST_HOST_COPY:  
+         break;
+      case DEVICE_HOST_COPY:
+         break;
+      case HOST_DEVICE_COPY:
+         break;
+      case DEVICE_DEVICE_COPY:
+         break;
+      default:
+         std::cout << "Error: unrecognized timed memory copy operation type" << std::endl; 
+         break;
+   }
+   return 0;
+}
+
+void MemCopyRun(BenchParams &params, int numCopiesPerStep, MEM_OP copyType) {
+   //Calculate the steps for the run;
+   //useful for knowing the number of total steps for various randomization methods
+
+   long startStep = params.rangeHostDeviceBW[0];
+   long stopStep = params.rangeHostDeviceBW[1];
+   long numSteps = params.rangeHostDeviceBW[2];
+
+   int magStart = max((int)log10(startStep), 1);
+   int magStop = log10(stopStep);
+
+   int start = max((int)pow(10, magStart), 10);
+   double stepSize = 10 * start / numSteps;
+   int extra = (stopStep - pow(10, magStop)) / pow(10, magStop - 1);// (pow(10, magStop - 2) * stepSize);
+   int stop = pow(10, magStop - 1) * (10 + extra); 
+   int totalSteps = (magStop - magStart) * (numSteps) + extra * numSteps / 10; 
+   
+   double step = start;
+
+   std::cout << extra << std::endl;
+   std::cout << totalSteps << std::endl;
+   std::cout << start << std::endl;
+   std::cout << stop << std::endl;
+   for (long stepNum = 1; stepNum <= totalSteps; ++stepNum) {     
+      std::cout << stepNum << " " <<  (long) step << " "<< stepSize << std::endl;
+      
+      if (stepNum && (stepNum % (numSteps - 1) == 0) && (stop >= stepSize * 10 * numSteps + step)) {
+         stepSize *= 10.0;
+         std::cout << stepSize << std::endl;
+      }
+ 
+      step += stepSize;
+   }
+}
+
 void TestHostDeviceBandwidth(cudaDeviceProp *props, BenchParams &params, SystemTopo &topo) {
    std::cout << "Running host-device bandwidth test" << std::endl;
+   int numCopiesPerStep = 20;
+
+   if (params.runSustainedHD == false) {
+      numCopiesPerStep = 1;
+   }
+
+   //for (int socketIdx = 0; socketIdx < topo.NumSockets(); socketIdx++) {
+      //topo.PinSocket(socketIdx);
+ 
+      /*for (int numaSrc = 0; numaSrc < topo.NumNodes(); numaSrc++) { 
+         topo.PinNumaNode(numaSrc);
+
+
+         //Host to host memory transfers
+         for (int numaDest = 0; numaDest < topo.NumNodes(); numaDest++) { 
+            topo.PinNumaNode(numaDest);
+
+            MemCopyRun(params, numCopiesPerStep, HOST_HOST_COPY); 
+         }
+
+         //Host/Device bandwidth PCIetransfers
+         for (int currDev = 0; currDev < nDevices; currDev++) {
+            checkCudaErrors(cudaSetDevice(currDev));
+         
+            MemCopyRun(params, numCopiesPerStep, DEVICE_HOST_COPY); 
+            MemCopyRun(params, numCopiesPerStep, HOST_DEVICE_COPY); 
+         }
+      }*/
+   //}
+
+   MemCopyRun(params, numCopiesPerStep, DEVICE_HOST_COPY); 
 }
 
 void TestP2PDeviceBandwidth(cudaDeviceProp *props, BenchParams &params, SystemTopo &topo){
    std::cout << "Running P2P device bandwidth test" << std::endl;
+
+   //Device to Device transfers
+   /*for (int srcDev = 0; currDev < params.nDevices; currDev++) {
+      checkCudaErrors(cudaSetDevice(currDev));
+      for (int destDev = 0; currDev < nDevices; currDev++) {
+         checkCudaErrors(cudaSetDevice(currDev));  
+      
+         //must support p2p to allow direct transfer
+         if (srcDev != destDev) {
+            
+         }
+      }
+   } */     
+
+
+
 }
 
 void TestPCIeCongestion(cudaDeviceProp *props, BenchParams &params, SystemTopo &topo) {
@@ -303,7 +406,65 @@ void PrintDeviceProps(cudaDeviceProp *props, BenchParams &params) {
 
    for (int i = 0; i < params.nDevices; i++) {
       deviceProps << props[i].name << std::endl;
+      deviceProps << "CUDA Capability: " << props[i].major << "." << props[i].minor << std::endl;
       deviceProps << "PCI Bus/Device/Domain ID: " <<   props[i].pciBusID << ":" <<  props[i].pciDeviceID << ":" <<  props[i].pciDomainID << std::endl; 
+      deviceProps << "Clock: " << props[i].clockRate << std::endl; 
+      deviceProps << "Memory Clock: " << props[i].memoryClockRate << std::endl; 
+      deviceProps << "Memory Bus Width: " << props[i].memoryBusWidth << std::endl; 
+      deviceProps << "Theoretical BW: " << props[i].clockRate << std::endl;
+      deviceProps << "Global Mem: " << props[i].totalGlobalMem << std::endl;
+
+ 
+/*        printf("  CUDA Driver Version / Runtime Version          %d.%d / %d.%d\n", driverVersion/1000, (driverVersion%100)/10, runtimeVersion/1000, (runtimeVersion%100)/10);
+        printf("  CUDA Capability Major/Minor version number:    %d.%d\n", deviceProp.major, deviceProp.minor);
+
+        char msg[256];
+        SPRINTF(msg, "  Total amount of global memory:                 %.0f MBytes (%llu bytes)\n",
+                (float)deviceProp.totalGlobalMem/1048576.0f, (unsigned long long) deviceProp.totalGlobalMem);
+        printf("%s", msg);
+
+        printf("  (%2d) Multiprocessors, (%3d) CUDA Cores/MP:     %d CUDA Cores\n",
+               deviceProp.multiProcessorCount,
+               _ConvertSMVer2Cores(deviceProp.major, deviceProp.minor),
+               _ConvertSMVer2Cores(deviceProp.major, deviceProp.minor) * deviceProp.multiProcessorCount);
+        printf("  GPU Max Clock rate:                            %.0f MHz (%0.2f GHz)\n", deviceProp.clockRate * 1e-3f, deviceProp.clockRate * 1e-6f);
+
+
+#if CUDART_VERSION >= 5000
+        // This is supported in CUDA 5.0 (runtime API device properties)
+        printf("  Memory Clock rate:                             %.0f Mhz\n", deviceProp.memoryClockRate * 1e-3f);
+        printf("  Memory Bus Width:                              %d-bit\n",   deviceProp.memoryBusWidth);
+
+        if (deviceProp.l2CacheSize)
+        {
+            printf("  L2 Cache Size:                                 %d bytes\n", deviceProp.l2CacheSize);
+        }
+
+#else
+        // This only available in CUDA 4.0-4.2 (but these were only exposed in the CUDA Driver API)
+        int memoryClock;
+        getCudaAttribute<int>(&memoryClock, CU_DEVICE_ATTRIBUTE_MEMORY_CLOCK_RATE, dev);
+        printf("  Memory Clock rate:                             %.0f Mhz\n", memoryClock * 1e-3f);
+        int memBusWidth;
+        getCudaAttribute<int>(&memBusWidth, CU_DEVICE_ATTRIBUTE_GLOBAL_MEMORY_BUS_WIDTH, dev);
+        printf("  Memory Bus Width:                              %d-bit\n", memBusWidth);
+        int L2CacheSize;
+        getCudaAttribute<int>(&L2CacheSize, CU_DEVICE_ATTRIBUTE_L2_CACHE_SIZE, dev);
+
+        if (L2CacheSize)
+        {
+            printf("  L2 Cache Size:                                 %d bytes\n", L2CacheSize);
+        }
+
+#endif
+
+        printf("  Maximum Texture Dimension Size (x,y,z)         1D=(%d), 2D=(%d, %d), 3D=(%d, %d, %d)\n",
+               deviceProp.maxTexture1D   , deviceProp.maxTexture2D[0], deviceProp.maxTexture2D[1],
+               deviceProp.maxTexture3D[0], deviceProp.maxTexture3D[1], deviceProp.maxTexture3D[2]);
+        printf("  Maximum Layered 1D Texture Size, (num) layers  1D=(%d), %d layers\n",
+               deviceProp.maxTexture1DLayered[0], deviceProp.maxTexture1DLayered[1]);
+        printf("  Maximum Layered 2D Texture Size, (num) layers  2D=(%d, %d), %d layers\n",
+               deviceProp.maxTexture2DLayered[0], deviceProp.maxTexture2DLayered[1], deviceProp.maxTexture2DLayered[2]);*/
 /*
       deviceProps << 
       deviceProps << 

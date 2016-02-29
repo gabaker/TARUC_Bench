@@ -1,7 +1,7 @@
 
 #ifndef BENCH_HEADER_INC
 #define BENCH_HEADER_INC
-#include "bench.h"
+#include "benchmark.h"
 #endif
 
 #ifndef PARAM_CLASS_INC
