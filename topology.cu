@@ -21,15 +21,29 @@ void SystemTopo::PinSocket(int socketIdx) {
 
 }
 
-/*void SystemTopo::PinCoreBySocket(int coreIdx) {
-
-
+void SystemTopo::PinCoreBySocket(int coreIdx, int socketIdx) {
+   
+   /*hwloc_obj_t core = hwloc_get_obj_by_depth(topology, CoreDepth, socketIdx);
+   hwloc_set_cpubind(topology, socket->cpuset, HWLOC_CPUBIND_THREAD | HWLOC_CPUBIND_NOMEMBIND | HWLOC_CPUBIND_STRICT);
+*/
 }
 
-void SystemTopo::PinPUBySocket(int socketIdx, int puIdx) {
+void * SystemTopo::AllocMemByNode(int nodeIdx, long numBytes) {
+   hwloc_obj_t node = hwloc_get_obj_by_depth(topology, NodeDepth, nodeIdx);
 
-}*/
+   return hwloc_alloc_membind_policy_nodeset(topology, numBytes, node->nodeset, HWLOC_MEMBIND_BIND, HWLOC_MEMBIND_NOCPUBIND | HWLOC_MEMBIND_STRICT);
+}
 
+void * SystemTopo::AllocMemBySocket(int socketIdx, long numBytes) {
+   hwloc_obj_t socket = hwloc_get_obj_by_depth(topology, SocketDepth, socketIdx);
+
+   return hwloc_alloc_membind_policy_nodeset(topology, numBytes, socket->nodeset, HWLOC_MEMBIND_BIND, HWLOC_MEMBIND_NOCPUBIND | HWLOC_MEMBIND_STRICT);
+}
+
+void SystemTopo::FreeMem(void *addr, long numBytes) {
+   hwloc_free(topology, addr, numBytes);
+}    
+ 
 void SystemTopo::PrintTopology(std::ofstream &OutFile) {
    int s_depth = hwloc_get_type_depth(topology, HWLOC_OBJ_SOCKET);
    int c_depth = hwloc_get_type_depth(topology, HWLOC_OBJ_CORE);

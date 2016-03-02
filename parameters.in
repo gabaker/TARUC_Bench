@@ -16,8 +16,8 @@ varyBlockSizeHD=true
 usePinnedHD=true
 runBurstHD=true
 runSustainedHD=true
-range min=6
-range max=1500
+range min=10
+range max=2500000000
 range step=10
 --------------------------------
 runP2PBandwidthTest=false

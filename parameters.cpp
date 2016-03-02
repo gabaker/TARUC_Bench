@@ -5,10 +5,10 @@
 //#endif
 
 bool BenchParams::GetNextLineBool(std::ifstream &inFile, std::string &lineStr) {
-         do { 
-         if (inFile) 
-            std::getline(inFile, lineStr);
-      } while (inFile && lineStr[0] == '-');
+  do { 
+      if (inFile) 
+         std::getline(inFile, lineStr);
+   } while (inFile && lineStr[0] == '-');
 
    return ((lineStr.find("alse") >= lineStr.length()) ? true : false); 
 }

@@ -21,8 +21,13 @@ class SystemTopo
       //Topology pinning - numa and cpuset
       void PinNumaNode(int nodeIdx);
       void PinSocket(int socketIdx);
+      void PinCoreBySocket(int coreIdx, int socketIdx);
 
-      //void PinCoreBySocket(int coreIdx);
+      //Memory management by cpu/nodes
+      void * AllocMemByNode(int nodeIdx, long numBytes);
+      void * AllocMemBySocket(int socketIdx, long numBytes);
+      void FreeMem(void *addr, long numBytes);     
+ 
       //void PinPUBySocket(int socketIdx, int puIdx);
       //void PinPURange(int FirstPU, int LastPU);
       //void PinNumaNodeByPU(int puIdx); 

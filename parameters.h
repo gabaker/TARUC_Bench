@@ -11,45 +11,44 @@ class BenchParams {
 
 
    public:
+      std::string resultsFile;
+      std::string inputFile;
+      bool useDefaultParams;
 
-   std::string resultsFile;
-   std::string inputFile;
-   bool useDefaultParams;
+      bool printDevProps;
+      std::string devPropFile;
 
-   bool printDevProps;
-   std::string devPropFile;
+      std::string topoFile;
+      bool runTopoAware;
 
-   std::string topoFile;
-   bool runTopoAware;
+      int nDevices;
 
-   int nDevices;
+      // Overhead memory test for allocation and deallocation of Host and Device memory
+      bool runMemoryOverheadTest;
+      bool runAllDevices;
+      long rangeMemOverhead[3]; //min, max and step size (in bytes)
+    
+      // Device-Peer PCIe Baseline bandwidth test
+      bool runHostDeviceBandwidthTest;
+      bool varyBlockSizeHD; //need to change this
+      bool runBurstHD;
+      bool runSustainedHD;
+      bool usePinnedHD;
+      long numCopiesPerStepHD;
+      long rangeHostDeviceBW[3]; //min, max and step size (in bytes)
 
-   // Overhead memory test for allocation and deallocation of Host and Device memory
-   bool runMemoryOverheadTest;
-   bool runAllDevices;
-   long rangeMemOverhead[3]; //min, max and step size (in bytes)
- 
-   // Device-Peer PCIe Baseline bandwidth test
-   bool runHostDeviceBandwidthTest;
-   bool varyBlockSizeHD;
-   bool usePinnedHD;
-   bool runBurstHD;
-   bool runSustainedHD;
-   long rangeHostDeviceBW[3]; //min, max and step size (in bytes)
+      // Peer-to-peer device memory transfer bandwidth
+      bool runP2PBandwidthTest;
+      bool varyBlockSizeP2P;
+      bool runBurstP2P;
+      bool runSustainedP2P;
+      long rangeDeviceP2P[3]; //min, max and step size (in bytes)
 
-   // Peer-to-peer device memory transfer bandwidth
-   bool runP2PBandwidthTest;
-   bool varyBlockSizeP2P;
-   bool runBurstP2P;
-   bool runSustainedP2P;
-   long rangeDeviceP2P[3]; //min, max and step size (in bytes)
+      // PCIe Congestion tests
+      bool runPCIeCongestionTest;
 
-   // PCIe Congestion tests
-   bool runPCIeCongestionTest;
-
-   // CUDA kernel task scalability and load balancing
-   bool runTaskScalabilityTest;
-
+      // CUDA kernel task scalability and load balancing
+      bool runTaskScalabilityTest;
 
       void ParseParamFile(std::string fileStr);
       void SetDefault();
