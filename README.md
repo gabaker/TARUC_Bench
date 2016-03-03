@@ -28,13 +28,13 @@ CUDA PCIe Bandwidth, Memory and Multi-GPU Benchmarks that accounts for multi soc
 - Linux/Unix system (untested on OSX or Windows)
 
 ##Features:
--CUDA support for multi-gpu systems
--Support for diverse topology recognition using hwloc, numa.h and cpuset.h 
--matplot lib plotting of complete benchmark runs using provided parameter file
+- CUDA support for multi-gpu systems
+- Support for diverse topology recognition using hwloc, numa.h and cpuset.h 
+- matplot lib plotting of complete benchmark runs using provided parameter file
 
 ##Non-Features:
--Distributed system awareness
--Network communicaton
+- Distributed system awareness
+- Network communicaton
 
 
 ##Run Instructions:
