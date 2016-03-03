@@ -43,18 +43,18 @@ CUDA PCIe Bandwidth, Memory and Multi-GPU Benchmarks that accounts for multi soc
 
 ##Explaination of Directory Structure and Project Files:
 
-scripts/
-results/
-misc/
-sample_images/
+- scripts/
+- results/
+- misc/
+- sample_images/
 
-benchmark.cu
-benchmark.h
-helper_cuda.h
-helper_string.h
-parameters.cpp
-parameters.h
-parameters.in
-topology.cu
-topology.h
+- benchmark.cu
+- benchmark.h
+- helper_cuda.h
+- helper_string.h
+- parameters.cpp
+- parameters.h
+- parameters.in
+- topology.cu
+- topology.h
 
