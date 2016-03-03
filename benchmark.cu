@@ -244,13 +244,13 @@ void TestHostDeviceBandwidth(cudaDeviceProp *props, BenchParams &params, SystemT
          //Host To Host Memory Transfers
          for (int numaDest = 0; numaDest < topo.NumNodes(); numaDest++) { 
             // HtoH Ranged Transfer - Pageable Memory
-            MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY, REPEATED, numaDest, numaSrc); 
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY, REPEATED, numaDest, numaSrc); 
             //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY, RANDOM, numaDest, numaSrc); 
             //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY, LINEAR_INC, numaDest, numaSrc); 
             //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY, LINEAR_DEC, numaDest, numaSrc); 
 
             //HtoH Ranged Transfer - Pinned Memory
-            MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY_PINNED, REPEATED, numaDest, numaSrc); 
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY_PINNED, REPEATED, numaDest, numaSrc); 
             //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY_PINNED, RANDOM, numaDest, numaSrc); 
             //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY_PINNED, LINEAR_INC, numaDest, numaSrc); 
             //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY_PINNED, LINEAR_DEC, numaDest, numaSrc); 
@@ -258,7 +258,7 @@ void TestHostDeviceBandwidth(cudaDeviceProp *props, BenchParams &params, SystemT
          }
 
          //Host-Device PCIe Memory Transfers
-         for (int currDev = 0; currDev < params.nDevices; currDev++) {
+/*         for (int currDev = 0; currDev < params.nDevices; currDev++) {
             checkCudaErrors(cudaSetDevice(currDev));
 
             // HtoD Ranged Transfer - Pageable Memory
@@ -284,14 +284,14 @@ void TestHostDeviceBandwidth(cudaDeviceProp *props, BenchParams &params, SystemT
             //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY_PINNED, RANDOM, currDev, numaSrc); 
             //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY_PINNED, LINEAR_INC, currDev, numaSrc); 
             //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY_PINNED, LINEAR_DEC, currDev, numaSrc); 
-
          }
+*/
       }
    }
 
    std::string dataFileName = "./results/" + params.resultsFile + "_bandwidth.csv";
    std::ofstream bandwidthResultsFile(dataFileName.c_str());
-   PrintResults(bandwidthResultsFile, blockSteps, bandwidthData, params);
+   //PrintResults(bandwidthResultsFile, blockSteps, bandwidthData, params);
 
    return;
 }
