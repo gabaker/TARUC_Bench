@@ -1,7 +1,9 @@
 CUDA PCIe Bandwidth, Memory and Multi-GPU Benchmarks that accounts for multi socket systems with many variable model GPUs
 
-###Author: Gavin Baker
-###Contact:gabaker@calpoly.edu or gavin.m.baker@gmail.com
+####Author: Gavin Baker
+####Contact:
+    gabaker@calpoly.edu
+    gavin.m.baker@gmail.com
 
 ##Acknowledgements: 
 
@@ -11,27 +13,19 @@ CUDA PCIe Bandwidth, Memory and Multi-GPU Benchmarks that accounts for multi soc
 
 ##Explaination of Goals:
 
-1)
-
-2)
-
-3)
+1. Goal 1
+2. Goal 2
+3. Goal 3
 
 ##Package Requirements:
 
--C++11
-
--CUDA toolkit
-
--HWLOC
-
--numa.h
-
--python2.7+
-
--openmp (omp.h)
-
--Linux/Unix system (untested on OSX or Windows)
+- C++11
+- CUDA toolkit
+- HWLOC
+- numa.h
+- python2.7+
+- openmp (omp.h)
+- Linux/Unix system (untested on OSX or Windows)
 
 ##Features:
 -CUDA support for multi-gpu systems
