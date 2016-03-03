@@ -7,10 +7,10 @@ topoFile=topology.in
 runAllDevices=true
 usePinnedMem=true
 -------- Memory Overhead --------
-runMemOverheadTest=false
-numStepRepeatsOH=20
+runMemOverheadTest=true
+numStepRepeatsOH=5
 range min=10
-range max=150000000
+range max=1500000000
 range step=10
 ----- Host-Device Bandwidth -----
 runHDBandwidthTest=true
@@ -18,9 +18,9 @@ runRangeTestHD=true
 runBurstHD=true
 runSustainedHD=true
 runAllPatternsHD=false
-numCopiesPerStepHD=10
+numCopiesPerStepHD=5
 range min=10
-range max=150000000
+range max=1500000000
 range step=10
 --------- P2P Bandwidth ---------
 runP2PBandwidthTest=false

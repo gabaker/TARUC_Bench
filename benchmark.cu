@@ -149,6 +149,9 @@ void TestMemoryOverhead(cudaDeviceProp *props, BenchParams &params, SystemTopo &
    char *hostPinnedMem = NULL;
    int nDevices = params.nDevices;
    long long chunkSize = 0;
+   int testNum = 0;
+
+   std::cout << "\nRunning Memory Overhead Test...\n" << std::endl;
 
    // Only run overhead device cases on a single device
    // default to device 0
@@ -169,6 +172,7 @@ void TestMemoryOverhead(cudaDeviceProp *props, BenchParams &params, SystemTopo &
       for (int socketIdx = 0; socketIdx < topo.NumSockets(); socketIdx++) {
          topo.PinSocket(socketIdx);
          
+            std::cout << "Test " << testNum++ << " Host Alloc/Free, Pinned/Pageable\t" << "|numa node: " << numaIdx << " CPU " << socketIdx << "|" << std::endl;            
          // Host based management for CASE 1 & 2
          for (long stepIdx = 0; stepIdx < blockSteps.size(); stepIdx++) {
             chunkSize = blockSteps[stepIdx];
@@ -195,7 +199,8 @@ void TestMemoryOverhead(cudaDeviceProp *props, BenchParams &params, SystemTopo &
          // Device based memory management for CASE 3 & 4
          for (int currDev = 0; currDev < nDevices; currDev++) {
             checkCudaErrors(cudaSetDevice(currDev)); 
-
+            std::cout << "Test " << testNum++ << " Device Alloc/Free \t\t" << "|numa node: " << numaIdx << " CPU " << socketIdx << " device:" << currDev << "|" << std::endl;            
+            
             for (long stepIdx = 0; stepIdx < blockSteps.size(); stepIdx++) {
                chunkSize = blockSteps[stepIdx];
                float devAllocTime = 0, devFreeTime = 0;
@@ -218,11 +223,13 @@ void TestMemoryOverhead(cudaDeviceProp *props, BenchParams &params, SystemTopo &
    std::ofstream overheadResultsFile(dataFileName.c_str());
    PrintResults(overheadResultsFile, blockSteps, overheadData, params);
 
+   std::cout << "\nFinished Memory Overhead Test!" << std::endl;
+   
    return;
 }
 
 void TestHostDeviceBandwidth(cudaDeviceProp *props, BenchParams &params, SystemTopo &topo) {
-   std::cout << "Running host-device bandwidth test" << std::endl;
+   std::cout << "\nRunning host-device bandwidth test...\n" << std::endl;
 
    params.numCopiesPerStepHD = 20;
    
@@ -234,8 +241,8 @@ void TestHostDeviceBandwidth(cudaDeviceProp *props, BenchParams &params, SystemT
    std::vector<long long> blockSteps;
    CalcRunSteps(blockSteps, params.rangeHostDeviceBW[0], params.rangeHostDeviceBW[1], params.rangeHostDeviceBW[2]); 
    bandwidthData.resize(blockSteps.size());
-
-   for (int socketIdx = 0; socketIdx < topo.NumSockets(); socketIdx++) {
+   int testNum = 0;
+   for (int socketIdx = 0; socketIdx < 1/*topo.NumSockets()*/; socketIdx++) {
       topo.PinSocket(socketIdx);
  
       for (int numaSrc = 0; numaSrc < topo.NumNodes(); numaSrc++) { 
@@ -244,54 +251,79 @@ void TestHostDeviceBandwidth(cudaDeviceProp *props, BenchParams &params, SystemT
          //Host To Host Memory Transfers
          for (int numaDest = 0; numaDest < topo.NumNodes(); numaDest++) { 
             // HtoH Ranged Transfer - Pageable Memory
-            //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY, REPEATED, numaDest, numaSrc); 
-            //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY, RANDOM, numaDest, numaSrc); 
-            //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY, LINEAR_INC, numaDest, numaSrc); 
-            //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY, LINEAR_DEC, numaDest, numaSrc); 
-
+            std::cout << "Test " << testNum++ << " HtoH, Pageable Memory, Repeated Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Numa:" << numaDest << "|" << std::endl;
+            /*MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY, REPEATED, numaDest, numaSrc); 
+            std::cout << "Test " << testNum++ << " HtoH, Pageable Memory, Random\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Numa:" << numaDest << "|" << std::endl;
+            MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY, RANDOM, numaDest, numaSrc); 
+            std::cout << "Test " << testNum++ << " HtoH, Pageable Memory, Linear Inc Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Numa:" << numaDest << "|" << std::endl;
+            MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY, LINEAR_INC, numaDest, numaSrc); 
+            std::cout << "Test " << testNum++ << " HtoH, Pageable Memory, Linear Dec Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Numa:" << numaDest << "|" << std::endl;
+            MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY, LINEAR_DEC, numaDest, numaSrc); 
+*/
             //HtoH Ranged Transfer - Pinned Memory
-            //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY_PINNED, REPEATED, numaDest, numaSrc); 
+            std::cout << "Test " << testNum++ << " HtoH, Pinned Memory, Repeated Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Numa:" << numaDest << "|" << std::endl;
+            MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY_PINNED, REPEATED, numaDest, numaSrc); 
+  /*          std::cout << "Test " << testNum++ << " HtoH, Pinned Memory, Random Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Numa:" << numaDest << "|" << std::endl;
             //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY_PINNED, RANDOM, numaDest, numaSrc); 
+            std::cout << "Test " << testNum++ << " HtoH, Pinned Memory, Linear Inc Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Numa:" << numaDest << "|" << std::endl;
             //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY_PINNED, LINEAR_INC, numaDest, numaSrc); 
+            std::cout << "Test " << testNum++ << " HtoH, Pinned Memory, Linear Dec Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Numa:" << numaDest << "|" << std::endl;
             //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY_PINNED, LINEAR_DEC, numaDest, numaSrc); 
-
+*/
          }
 
          //Host-Device PCIe Memory Transfers
-/*         for (int currDev = 0; currDev < params.nDevices; currDev++) {
+         for (int currDev = 0; currDev < params.nDevices; currDev++) {
             checkCudaErrors(cudaSetDevice(currDev));
 
             // HtoD Ranged Transfer - Pageable Memory
-            MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_DEVICE_COPY, REPEATED, currDev, numaSrc); 
+            std::cout << "Test " << testNum++ << " HtoD, Pageable Memory, Repeated Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Dev:" << currDev << "|" << std::endl;
+  /*          MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_DEVICE_COPY, REPEATED, currDev, numaSrc); 
+            std::cout << "Test " << testNum++ << " HtoD, Pageable Memory, Random Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Dev:" << currDev << "|" << std::endl;
             //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_DEVICE_COPY, RANDOM, currDev, numaSrc); 
+            std::cout << "Test " << testNum++ << " HtoD, Pageable Memory, Linear Inc Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Dev:" << currDev << "|" << std::endl;
             //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_DEVICE_COPY, LINEAR_INC, currDev, numaSrc); 
+            std::cout << "Test " << testNum++ << " HtoD, Pageable Memory, Linear Dec Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Dev:" << currDev << "|" << std::endl;
             //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_DEVICE_COPY, LINEAR_DEC, currDev, numaSrc); 
-
-            // DtoH Ranged Transfer - Pageable Memory
-            MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY, REPEATED, currDev, numaSrc); 
-            //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY, RANDOM, currDev, numaSrc); 
-            //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY, LINEAR_INC, currDev, numaSrc); 
-            //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY, LINEAR_DEC, currDev, numaSrc); 
-
-            // HtoD Ranged Transfer - Pinned Memory
-            MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_DEVICE_COPY_PINNED, REPEATED, currDev, numaSrc); 
-            //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_DEVICE_COPY_PINNED, RANDOM, currDev, numaSrc); 
-            //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_DEVICE_COPY_PINNED, LINEAR_INC, currDev, numaSrc); 
-            //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_DEVICE_COPY_PINNED, LINEAR_DEC, currDev, numaSrc); 
-
-            // DtoH Ranged Transfer - Pinned Memory
-            MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY_PINNED, REPEATED, currDev, numaSrc); 
-            //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY_PINNED, RANDOM, currDev, numaSrc); 
-            //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY_PINNED, LINEAR_INC, currDev, numaSrc); 
-            //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY_PINNED, LINEAR_DEC, currDev, numaSrc); 
-         }
 */
+            // DtoH Ranged Transfer - Pageable Memory
+            std::cout << "Test " << testNum++ << " DtoH, Pageable Memory, Repeated Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Dev:" << currDev << "|" << std::endl;
+  /*          MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY, REPEATED, currDev, numaSrc); 
+            std::cout << "Test " << testNum++ << " DtoH, Pageable Memory, Random Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Dev:" << currDev << "|" << std::endl;
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY, RANDOM, currDev, numaSrc); 
+            std::cout << "Test " << testNum++ << " DtoH, Pageable Memory, Linear Inc Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Dev:" << currDev << "|" << std::endl;
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY, LINEAR_INC, currDev, numaSrc); 
+            std::cout << "Test " << testNum++ << " DtoH, Pageable Memory, Linear Dec Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Dev:" << currDev << "|" << std::endl;
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY, LINEAR_DEC, currDev, numaSrc); 
+*/
+            // HtoD Ranged Transfer - Pinned Memory
+            std::cout << "Test " << testNum++ << " HtoD, Pinned Memory, Repeated Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Dev:" << currDev << "|" << std::endl;
+            MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_DEVICE_COPY_PINNED, REPEATED, currDev, numaSrc); 
+  /*          std::cout << "Test " << testNum++ << " HtoD, Pinned Memory, Random Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Dev:" << currDev << "|" << std::endl;
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_DEVICE_COPY_PINNED, RANDOM, currDev, numaSrc); 
+            std::cout << "Test " << testNum++ << " HtoD, Pinned Memory, Linear Inc Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Dev:" << currDev << "|" << std::endl;
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_DEVICE_COPY_PINNED, LINEAR_INC, currDev, numaSrc); 
+            std::cout << "Test " << testNum++ << " HtoD, Pinned Memory, Linear Dec Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Dev:" << currDev << "|" << std::endl;
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_DEVICE_COPY_PINNED, LINEAR_DEC, currDev, numaSrc); 
+*/
+            // DtoH Ranged Transfer - Pinned Memory
+            std::cout << "Test " << testNum++ << " DtoH, Pinned Memory, Repeated Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Dev:" << currDev << "|" << std::endl;
+            MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY_PINNED, REPEATED, currDev, numaSrc); 
+  /*          std::cout << "Test " << testNum++ << " DtoH, Pinned Memory, Random Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Dev:" << currDev << "|" << std::endl;
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY_PINNED, RANDOM, currDev, numaSrc); 
+            std::cout << "Test " << testNum++ << " DtoH, Pinned Memory, Linear Inc\t\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Dev:" << currDev << "|" << std::endl;
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY_PINNED, LINEAR_INC, currDev, numaSrc); 
+            std::cout << "Test " << testNum++ << " DtoH, Pinned Memory, Linear Dec Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Dev:" << currDev << "|" << std::endl;
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY_PINNED, LINEAR_DEC, currDev, numaSrc); 
+    */     }
       }
    }
 
    std::string dataFileName = "./results/" + params.resultsFile + "_bandwidth.csv";
    std::ofstream bandwidthResultsFile(dataFileName.c_str());
-   //PrintResults(bandwidthResultsFile, blockSteps, bandwidthData, params);
+   PrintResults(bandwidthResultsFile, blockSteps, bandwidthData, params);
+
+   std::cout << "\nHost-Device and Host-Host Bandwidth Tests complete!" << std::endl;
 
    return;
 }
@@ -332,14 +364,14 @@ void MemCopyRun(BenchParams &params, SystemTopo &topo, std::vector<long long> &b
    long long blockSize = blockSteps[totalSteps - 1 ];
 
    AllocateMemBlock(topo, (void **) &destPtr, (void **) &srcPtr, blockSize, copyType, destIdx, srcIdx);
-   FreeMemBlock(topo, (void *) destPtr, (void *) srcPtr, blockSize, copyType, destIdx, srcIdx);
 
-  
    for (long stepNum = 0; stepNum < totalSteps; ++stepNum) { 
 
       bandwidthData[stepNum].push_back(TimedMemCopyStep((char *) destPtr, (char *) srcPtr, blockSteps[stepNum], blockSize, params.numCopiesPerStepHD, copyType, patternType, destIdx, srcIdx));
 
    }
+   
+   FreeMemBlock(topo, (void *) destPtr, (void *) srcPtr, blockSize, copyType, destIdx, srcIdx);
 }
 
 float TimedMemCopyStep(char * destPtr, char *srcPtr, long stepSize, long long blockSize, int numCopiesPerStep, MEM_OP copyType, MEM_PATTERN patternType, int destIdx, int srcIdx) {
@@ -741,7 +773,7 @@ void PrintResults(std::ofstream &outFile, std::vector<long long> &steps, std::ve
    std::vector<std::vector<float> >::iterator iter_o;
    std::vector<float>::iterator iter_i;
    std::vector<long long>::iterator iter_l = steps.begin();
-   std::cout << results[0].size() << std::endl;
+   //std::cout << results[0].size() << std::endl;
    
    for (iter_o = results.begin(); iter_o != results.end(); ++iter_o) {
       outFile << std::fixed << *iter_l++ << ",";
