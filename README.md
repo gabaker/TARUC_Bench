@@ -1,7 +1,8 @@
 CUDA PCIe Bandwidth, Memory and Multi-GPU Benchmarks that accounts for multi socket systems with many variable model GPUs
 
 ####Author: Gavin Baker
-####Contact:gabaker@calpoly.edu
+####Contact:
+            gabaker@calpoly.edu
             gavin.m.baker@gmail.com
 
 ##Acknowledgements: 
