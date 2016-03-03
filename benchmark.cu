@@ -26,16 +26,16 @@ void TestPCIeCongestion(cudaDeviceProp *props, BenchParams &params, SystemTopo &
 void TestTaskScalability(cudaDeviceProp *props, BenchParams &params, SystemTopo &topo);
 
 // Test Subfunctions
-
-void MemCopyRun(BenchParams &params, char *destPtr, char *srcPtr, std::vector<long> &blockSteps, std::vector<std::vector<float> > &bandwidthData, MEM_OP copyType, MEM_PATTERN patternType, int destIdx = 0, int srcIdx = 0);
-float TimedMemOp(void **MemBlk, long NumBytes, MEM_OP TimedOp); 
-float TimedMemCopyStep(char * destPtr, char *srcPtr, long stepSize, long blockSize, int numCopiesPerStep, MEM_OP copyType, MEM_PATTERN patternType, int destIdx = 0, int srcIdx = 0);
-void MemCopyOp(char * destPtr, char *srcPtr, long stepSize, long blockSize, int numCopiesPerStep, MEM_OP copyType, int destIdx = 0, int srcIdx = 0);
+void MemCopyRun(BenchParams &params, SystemTopo &topo, std::vector<long long> &blockSteps, std::vector<std::vector<float> > &bandwidthData, MEM_OP copyType, MEM_PATTERN patternType, int destIdx, int srcIdx); 
+//void MemCopyRun(BenchParams &params, char *destPtr, char *srcPtr, std::vector<long long> &blockSteps, std::vector<std::vector<float> > &bandwidthData, MEM_OP copyType, MEM_PATTERN patternType, int destIdx = 0, int srcIdx = 0);
+float TimedMemOp(void **MemBlk, long long NumBytes, MEM_OP TimedOp); 
+float TimedMemCopyStep(char * destPtr, char *srcPtr, long stepSize, long long blockSize, int numCopiesPerStep, MEM_OP copyType, MEM_PATTERN patternType, int destIdx = 0, int srcIdx = 0);
+void MemCopyOp(char * destPtr, char *srcPtr, long stepSize, long long blockSize, int numCopiesPerStep, MEM_OP copyType, int destIdx = 0, int srcIdx = 0);
 
 // Support functions
-void AllocateMemBlock(SystemTopo &topo, void **destPtr, void **srcPtr, long numBytes, MEM_OP copyType, int destIdx = 0, int srcIdx = 0);
-void FreeMemBlock(SystemTopo &topo, void* destPtr, void *srcPtr, long numBytes, MEM_OP copyType, int destIdx = 0, int srcIdx = 0);
-int CalcRunSteps(std::vector<long> &blockSteps, long startStep, long stopStep, long numSteps); 
+void AllocateMemBlock(SystemTopo &topo, void **destPtr, void **srcPtr, long long numBytes, MEM_OP copyType, int destIdx = 0, int srcIdx = 0);
+void FreeMemBlock(SystemTopo &topo, void* destPtr, void *srcPtr, long long numBytes, MEM_OP copyType, int destIdx = 0, int srcIdx = 0);
+int CalcRunSteps(std::vector<long long> &blockSteps, long long startStep, long long stopStep, long long numSteps); 
 
 // Device Properties
 void GetAllDeviceProps(cudaDeviceProp *props, int dCount);
@@ -43,7 +43,7 @@ void PrintDeviceProps(cudaDeviceProp *props, BenchParams &params);
 void ResetDevices(int numToReset);
 
 // Results output
-void PrintResults(std::ofstream &outFile, std::vector<long> &steps, std::vector<std::vector<float> > &results, BenchParams &params);
+void PrintResults(std::ofstream &outFile, std::vector<long long> &steps, std::vector<std::vector<float> > &results, BenchParams &params);
 
 /* Benchmark main()
  * 
@@ -80,12 +80,11 @@ int main (int argc, char **argv) {
       exit(-1);
    }
 
-   // If running topology aware print HWLOC topology info 
-   if (params.runTopoAware) {
-      std::string topoFileName ="./results/topology.out";
-      std::ofstream topoFile(topoFileName.c_str());
-      topo.PrintTopology(topoFile);
-   }
+   // Print HWLOC topology info
+   // Class constructor parses system topology from device files (linux)
+   std::string topoFileName ="./results/topology.out";
+   std::ofstream topoFile(topoFileName.c_str());
+   topo.PrintTopology(topoFile);
 
    // Print device parameters for user/script parsing
    params.PrintParams();
@@ -108,7 +107,7 @@ void RunTestSuite(BenchParams &params, SystemTopo &topo) {
    
    }
 
-   if (params.runHostDeviceBandwidthTest) {
+   if (params.runHDBandwidthTest) {
 
       TestHostDeviceBandwidth(props, params, topo);
 
@@ -144,20 +143,22 @@ void RunTestSuite(BenchParams &params, SystemTopo &topo) {
    return;
 }
 
-//TODO: add numa awareness and pin threads to different sockets for runs
 void TestMemoryOverhead(cudaDeviceProp *props, BenchParams &params, SystemTopo &topo) {
    char *deviceMem = NULL;
    char *hostMem = NULL;
    char *hostPinnedMem = NULL;
    int nDevices = params.nDevices;
-
-   std::vector<long> blockSteps;
-   std::vector<std::vector<float> > overheadData;
+   long long chunkSize = 0;
 
    // Only run overhead device cases on a single device
    // default to device 0
    if (!params.runAllDevices)
       nDevices = 1;
+
+   std::vector<long long> blockSteps;
+   CalcRunSteps(blockSteps, params.rangeMemOverhead[0], params.rangeMemOverhead[1], params.rangeMemOverhead[2]);  
+   std::vector<std::vector<float> > overheadData;
+   overheadData.resize(blockSteps.size());
    
    // Memory overhead test will run for each device utilizing the cudaMalloc and cudaFree functions
    // on the first iteration of the look, assuming there is atleast one device, the host will run the 
@@ -167,49 +168,48 @@ void TestMemoryOverhead(cudaDeviceProp *props, BenchParams &params, SystemTopo &
       
       for (int socketIdx = 0; socketIdx < topo.NumSockets(); socketIdx++) {
          topo.PinSocket(socketIdx);
-      
-         for (int currDev = 0; currDev < nDevices; currDev++) {
-            checkCudaErrors(cudaSetDevice(currDev));
-     
-            std::vector<float> chunkData;
-            long stepNum = 0;
-            long stepSize = params.rangeMemOverhead[0];// / params.rangeMemOverhead[2];
-            //stepSize = (stepSize) ? stepSize : params.rangeMemOverhead[0]; 
-            for ( long chunkSize = params.rangeMemOverhead[0]; 
-                  chunkSize <= params.rangeMemOverhead[1]; 
-                  chunkSize += stepSize) { 
-
-               if (currDev == 0) {
-                  blockSteps.push_back(chunkSize); 
+         
+         // Host based management for CASE 1 & 2
+         for (long stepIdx = 0; stepIdx < blockSteps.size(); stepIdx++) {
+            chunkSize = blockSteps[stepIdx];
+            float pinAllocTime = 0, pinFreeTime = 0, hostAllocTime = 0, hostFreeTime = 0;
+            
+            // repeat same block run and average times
+            for (int reIdx = 0; reIdx < params.numStepRepeatsOH; reIdx++) {
+               if (params.usePinnedMem) {
                   //CASE 1: Host Pinned Memory Overhead
-                  chunkData.push_back(TimedMemOp((void **) &hostPinnedMem, chunkSize, HOST_PINNED_MALLOC));
-                  chunkData.push_back(TimedMemOp((void **) &hostPinnedMem, 0, HOST_PINNED_FREE)); 
-                  //CASE 2: Host UnPinned Memory Overhead
-                  chunkData.push_back(TimedMemOp((void **) &hostMem, 0, HOST_FREE));
-                  chunkData.push_back(TimedMemOp((void **) &hostMem, chunkSize, HOST_MALLOC));
+                  pinAllocTime += TimedMemOp((void **) &hostPinnedMem, chunkSize, HOST_PINNED_MALLOC);
+                  pinFreeTime += TimedMemOp((void **) &hostPinnedMem, 0, HOST_PINNED_FREE); 
                }
-               // CASE 3: Allocation of device memory  
-               chunkData.push_back(TimedMemOp((void **) &deviceMem, chunkSize, DEVICE_MALLOC));
-               // CASE 4: DeAllocation of device memory 
-               chunkData.push_back(TimedMemOp((void **) &deviceMem, 0, DEVICE_FREE));
-              
-               //Add device/host run data to correct location of data vector
-               if (currDev == 0 && numaIdx == 0 && socketIdx == 0) {
-                  overheadData.push_back(chunkData); 
-               } else {
-                  for (int i = 0; i < chunkData.size(); i++) {
-                  overheadData[stepNum].push_back(chunkData[i]);
-                  //overheadData[stepNum].push_back(chunkData[1]);
-                  }
-               }
-               chunkData.clear(); //clear chunkData for next mem step 
+               //CASE 2: Host UnPinned Memory Overhead
+               hostAllocTime += TimedMemOp((void **) &hostMem, 0, HOST_FREE);
+               hostFreeTime += TimedMemOp((void **) &hostMem, chunkSize, HOST_MALLOC);
+            }
 
-               //Move to next stepSize after every numSteps as set by the param file
-               long stride = (params.rangeMemOverhead[2] - 1) ? (params.rangeMemOverhead[2] - 1) : 1;
-               if (stepNum && (stepNum % stride) == 0) {
-                  stepSize *= 5;
+            overheadData[stepIdx].push_back(pinAllocTime / (float) params.numStepRepeatsOH);
+            overheadData[stepIdx].push_back(pinFreeTime / (float) params.numStepRepeatsOH);
+            overheadData[stepIdx].push_back(hostAllocTime / (float) params.numStepRepeatsOH);
+            overheadData[stepIdx].push_back(hostFreeTime / (float) params.numStepRepeatsOH);
+         }
+         
+         // Device based memory management for CASE 3 & 4
+         for (int currDev = 0; currDev < nDevices; currDev++) {
+            checkCudaErrors(cudaSetDevice(currDev)); 
+
+            for (long stepIdx = 0; stepIdx < blockSteps.size(); stepIdx++) {
+               chunkSize = blockSteps[stepIdx];
+               float devAllocTime = 0, devFreeTime = 0;
+
+               // repeat same block run and average times
+               for (int reIdx = 0; reIdx < params.numStepRepeatsOH; reIdx++) {
+                  // CASE 3: Allocation of device memory  
+                  devAllocTime += TimedMemOp((void **) &deviceMem, chunkSize, DEVICE_MALLOC);
+                  // CASE 4: DeAllocation of device memory 
+                  devFreeTime += TimedMemOp((void **) &deviceMem, 0, DEVICE_FREE);
                }
-               stepNum++; 
+
+               overheadData[stepIdx].push_back(devAllocTime / (float) params.numStepRepeatsOH);
+               overheadData[stepIdx].push_back(devFreeTime / (float) params.numStepRepeatsOH);
             }
          }
       }
@@ -224,21 +224,16 @@ void TestMemoryOverhead(cudaDeviceProp *props, BenchParams &params, SystemTopo &
 void TestHostDeviceBandwidth(cudaDeviceProp *props, BenchParams &params, SystemTopo &topo) {
    std::cout << "Running host-device bandwidth test" << std::endl;
 
-   params.numCopiesPerStepHD = 1;
+   params.numCopiesPerStepHD = 20;
    
    if (params.runSustainedHD == false) {
       params.numCopiesPerStepHD = 1;
    }
 
-   void *destPtr, *srcPtr;
    std::vector<std::vector<float> > bandwidthData;
-   std::vector<long> blockSteps;
+   std::vector<long long> blockSteps;
    CalcRunSteps(blockSteps, params.rangeHostDeviceBW[0], params.rangeHostDeviceBW[1], params.rangeHostDeviceBW[2]); 
    bandwidthData.resize(blockSteps.size());
-
-   AllocateMemBlock(topo, &destPtr, &srcPtr, blockSteps[blockSteps.size()-1], HOST_HOST_COPY);
-   MemCopyRun(params, (char *) destPtr, (char *) srcPtr, blockSteps, bandwidthData, HOST_HOST_COPY, REPEATED); 
-   FreeMemBlock(topo, destPtr, srcPtr, blockSteps[blockSteps.size()-1], HOST_HOST_COPY);
 
    for (int socketIdx = 0; socketIdx < topo.NumSockets(); socketIdx++) {
       topo.PinSocket(socketIdx);
@@ -246,16 +241,49 @@ void TestHostDeviceBandwidth(cudaDeviceProp *props, BenchParams &params, SystemT
       for (int numaSrc = 0; numaSrc < topo.NumNodes(); numaSrc++) { 
          topo.PinNumaNode(numaSrc);
 
-         //Host to host memory transfers
+         //Host To Host Memory Transfers
          for (int numaDest = 0; numaDest < topo.NumNodes(); numaDest++) { 
+            // HtoH Ranged Transfer - Pageable Memory
+            MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY, REPEATED, numaDest, numaSrc); 
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY, RANDOM, numaDest, numaSrc); 
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY, LINEAR_INC, numaDest, numaSrc); 
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY, LINEAR_DEC, numaDest, numaSrc); 
 
+            //HtoH Ranged Transfer - Pinned Memory
+            MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY_PINNED, REPEATED, numaDest, numaSrc); 
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY_PINNED, RANDOM, numaDest, numaSrc); 
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY_PINNED, LINEAR_INC, numaDest, numaSrc); 
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY_PINNED, LINEAR_DEC, numaDest, numaSrc); 
 
          }
 
-         //Host/Device bandwidth PCIetransfers
+         //Host-Device PCIe Memory Transfers
          for (int currDev = 0; currDev < params.nDevices; currDev++) {
             checkCudaErrors(cudaSetDevice(currDev));
 
+            // HtoD Ranged Transfer - Pageable Memory
+            MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_DEVICE_COPY, REPEATED, currDev, numaSrc); 
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_DEVICE_COPY, RANDOM, currDev, numaSrc); 
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_DEVICE_COPY, LINEAR_INC, currDev, numaSrc); 
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_DEVICE_COPY, LINEAR_DEC, currDev, numaSrc); 
+
+            // DtoH Ranged Transfer - Pageable Memory
+            MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY, REPEATED, currDev, numaSrc); 
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY, RANDOM, currDev, numaSrc); 
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY, LINEAR_INC, currDev, numaSrc); 
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY, LINEAR_DEC, currDev, numaSrc); 
+
+            // HtoD Ranged Transfer - Pinned Memory
+            MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_DEVICE_COPY_PINNED, REPEATED, currDev, numaSrc); 
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_DEVICE_COPY_PINNED, RANDOM, currDev, numaSrc); 
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_DEVICE_COPY_PINNED, LINEAR_INC, currDev, numaSrc); 
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_DEVICE_COPY_PINNED, LINEAR_DEC, currDev, numaSrc); 
+
+            // DtoH Ranged Transfer - Pinned Memory
+            MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY_PINNED, REPEATED, currDev, numaSrc); 
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY_PINNED, RANDOM, currDev, numaSrc); 
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY_PINNED, LINEAR_INC, currDev, numaSrc); 
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY_PINNED, LINEAR_DEC, currDev, numaSrc); 
 
          }
       }
@@ -296,12 +324,17 @@ void TestTaskScalability(cudaDeviceProp *props, BenchParams &params, SystemTopo 
    return;
 }
 
-void MemCopyRun(BenchParams &params, char *destPtr, char *srcPtr, std::vector<long> &blockSteps, std::vector<std::vector<float> > &bandwidthData, MEM_OP copyType, MEM_PATTERN patternType, int destIdx, int srcIdx) {
+void MemCopyRun(BenchParams &params, SystemTopo &topo, std::vector<long long> &blockSteps, std::vector<std::vector<float> > &bandwidthData, MEM_OP copyType, MEM_PATTERN patternType, int destIdx, int srcIdx) {
+   char *destPtr, *srcPtr; 
    long totalSteps = blockSteps.size();
    
    std::vector<float> timedRun(totalSteps, 0.0);
-   long blockSize = blockSteps[totalSteps - 1 ];
-   
+   long long blockSize = blockSteps[totalSteps - 1 ];
+
+   AllocateMemBlock(topo, (void **) &destPtr, (void **) &srcPtr, blockSize, copyType, destIdx, srcIdx);
+   FreeMemBlock(topo, (void *) destPtr, (void *) srcPtr, blockSize, copyType, destIdx, srcIdx);
+
+  
    for (long stepNum = 0; stepNum < totalSteps; ++stepNum) { 
 
       bandwidthData[stepNum].push_back(TimedMemCopyStep((char *) destPtr, (char *) srcPtr, blockSteps[stepNum], blockSize, params.numCopiesPerStepHD, copyType, patternType, destIdx, srcIdx));
@@ -309,9 +342,10 @@ void MemCopyRun(BenchParams &params, char *destPtr, char *srcPtr, std::vector<lo
    }
 }
 
-float TimedMemCopyStep(char * destPtr, char *srcPtr, long stepSize, long blockSize, int numCopiesPerStep, MEM_OP copyType, MEM_PATTERN patternType, int destIdx, int srcIdx) {
-   long offset = 0;
+float TimedMemCopyStep(char * destPtr, char *srcPtr, long stepSize, long long blockSize, int numCopiesPerStep, MEM_OP copyType, MEM_PATTERN patternType, int destIdx, int srcIdx) {
+   long long offset = 0;
    float totalTime = 0; 
+
    #ifdef USING_CPP
    std::chrono::high_resolution_clock::time_point start_c, stop_c;
    auto total_c = std::chrono::duration_cast<std::chrono::nanoseconds>(stop_c - start_c);
@@ -321,7 +355,7 @@ float TimedMemCopyStep(char * destPtr, char *srcPtr, long stepSize, long blockSi
    
    cudaEvent_t start_e, stop_e; 
    checkCudaErrors(cudaEventCreate(&start_e));
-   checkCudaErrors(cudaEventCreate(&stop_e));
+   checkCudaErrors(cudaEventCreate(&stop_e)); 
 
    if (HOST_HOST_COPY) {
       #ifdef USING_CPP
@@ -377,7 +411,7 @@ float TimedMemCopyStep(char * destPtr, char *srcPtr, long stepSize, long blockSi
    return totalTime;
 }
 
-void MemCopyOp(char * destPtr, char *srcPtr, long stepSize, long blockSize, int numCopiesPerStep, MEM_OP copyType, int destIdx, int srcIdx) {
+void MemCopyOp(char * destPtr, char *srcPtr, long stepSize, long long blockSize, int numCopiesPerStep, MEM_OP copyType, int destIdx, int srcIdx) {
    switch (copyType) {
       case HOST_HOST_COPY:  
          memcpy((void *) (destPtr), (void *) (srcPtr), stepSize);
@@ -412,7 +446,7 @@ void MemCopyOp(char * destPtr, char *srcPtr, long stepSize, long blockSize, int 
    }
 }
 
-void FreeMemBlock(SystemTopo &topo, void* destPtr, void *srcPtr, long numBytes, MEM_OP copyType, int destIdx, int srcIdx) {
+void FreeMemBlock(SystemTopo &topo, void* destPtr, void *srcPtr, long long numBytes, MEM_OP copyType, int destIdx, int srcIdx) {
    switch (copyType) {
       case HOST_HOST_COPY: 
          topo.FreeMem((void *) destPtr, numBytes);
@@ -470,7 +504,7 @@ void FreeMemBlock(SystemTopo &topo, void* destPtr, void *srcPtr, long numBytes, 
    }
 }
 
-void AllocateMemBlock(SystemTopo &topo, void **destPtr, void **srcPtr, long numBytes, MEM_OP copyType, int destIdx, int srcIdx) {
+void AllocateMemBlock(SystemTopo &topo, void **destPtr, void **srcPtr,long  long numBytes, MEM_OP copyType, int destIdx, int srcIdx) {
    switch (copyType) {
 
       case HOST_HOST_COPY: 
@@ -528,31 +562,32 @@ void AllocateMemBlock(SystemTopo &topo, void **destPtr, void **srcPtr, long numB
    }
 }
 
-int CalcRunSteps(std::vector<long> &blockSteps, long startStep, long stopStep, long numSteps) {
+int CalcRunSteps(std::vector<long long> &blockSteps, long long startStep, long long stopStep, long long numSteps) {
    int magStart = max((int)log10(startStep), 1);
    int magStop = log10(stopStep);
 
-   long start = pow(10, magStart);
+   long long start = pow(10, magStart);
    double stepSize = 10 * start / numSteps;
    int extra = (stopStep - pow(10, magStop)) / pow(10, magStop) * numSteps;
-   long stop = pow(10, magStop - 1) * (10 + extra); 
+   long long stop = pow(10, magStop - 1) * (10 + extra); 
    int rangeSkip = numSteps / start;
    int totalSteps = (magStop - magStart) * (numSteps - rangeSkip) + extra + 1;  
    double step = start;
 
    for (long stepNum = 0; stepNum < totalSteps; ++stepNum) { 
       blockSteps.push_back(step);
-
+      
       if ((stepNum) && (stepNum) % (numSteps - rangeSkip) == 0 && (stepSize * numSteps * 10) <= stop) {
          stepSize *= 10.0;
       } 
+      
       step += stepSize; 
    }
 
    return totalSteps;
 }
 
-float TimedMemOp(void **MemBlk, long NumBytes, MEM_OP TimedOp) {
+float TimedMemOp(void **MemBlk, long long NumBytes, MEM_OP TimedOp) {
    #ifdef USING_CPP
    std::chrono::high_resolution_clock::time_point start_c, stop_c;
    auto total_c = std::chrono::duration_cast<std::chrono::nanoseconds>(stop_c - start_c);
@@ -697,7 +732,7 @@ void PrintDeviceProps(cudaDeviceProp *props, BenchParams &params) {
    deviceProps.close();
 }
 
-void PrintResults(std::ofstream &outFile, std::vector<long> &steps, std::vector<std::vector<float> > &results, BenchParams &params) {
+void PrintResults(std::ofstream &outFile, std::vector<long long> &steps, std::vector<std::vector<float> > &results, BenchParams &params) {
    
    if (!outFile.is_open()) {
       std::cout << "Failed to open file to print results" << std::endl;
@@ -705,7 +740,7 @@ void PrintResults(std::ofstream &outFile, std::vector<long> &steps, std::vector<
    }
    std::vector<std::vector<float> >::iterator iter_o;
    std::vector<float>::iterator iter_i;
-   std::vector<long>::iterator iter_l = steps.begin();
+   std::vector<long long>::iterator iter_l = steps.begin();
    std::cout << results[0].size() << std::endl;
    
    for (iter_o = results.begin(); iter_o != results.end(); ++iter_o) {

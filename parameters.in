@@ -1,34 +1,38 @@
----------------------------------
+----- Benchmark Parameters ------
 resultsFile=results
 printDevProps=true
 devPropFile=device_info.out
 topoFile=topology.in
-runTopoAware=true
----------------------------------
-runMemoryOverheadTest=false
+------------ All Tests ----------
 runAllDevices=true
-range min=5
-range max=1500
+usePinnedMem=true
+-------- Memory Overhead --------
+runMemOverheadTest=true
+numStepRepeatsOH=20
+range min=10
+range max=1500000000
 range step=10
---------------------------------
-runHostDeviceBandwidthTest=true
-varyBlockSizeHD=true
-usePinnedHD=true
+----- Host-Device Bandwidth -----
+runHDBandwidthTest=false
+runRangeTestHD=true
 runBurstHD=true
 runSustainedHD=true
-range min=10
+runAllPatternsHD=false
+numCopiesPerStepHD=100
+range min=20
 range max=2500000000
-range step=10
---------------------------------
+range step=20
+--------- P2P Bandwidth ---------
 runP2PBandwidthTest=false
 varyBlockSizeP2P=true
 runBurstP2P=true
 runSustainedP2P=true
+numCopiesPerStepP2P=1000
 range min=30
-range max=3000
+range max=3500000000
 range step=30
---------------------------------
+---------------------------------
 runPCIeCongestionTest=false
---------------------------------
+---------------------------------
 runTaskScalabilityTest=false
---------------------------------
+---------------------------------
