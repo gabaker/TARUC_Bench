@@ -18,7 +18,7 @@
 #endif
 
 // Benchmark Tests
-void RunTestSuite(BenchParams &params, SystemTopo &topo);
+void RunTestSuite(cudaDeviceProp *props, BenchParams &params, SystemTopo &topo);
 void TestMemoryOverhead(cudaDeviceProp *props, BenchParams &params, SystemTopo &topo);
 void TestHostDeviceBandwidth(cudaDeviceProp *props, BenchParams &params, SystemTopo &topo);
 void TestP2PDeviceBandwidth(cudaDeviceProp *props, BenchParams &params, SystemTopo &topo);
@@ -49,18 +49,17 @@ void PrintResults(std::ofstream &outFile, std::vector<long long> &steps, std::ve
  * 
  * 
  */
-
 int main (int argc, char **argv) {
-   BenchParams params;  
-   SystemTopo topo;
+   BenchParams benchParams;  
+   SystemTopo sysTopo;
    
-   std::cout << "Starting Multi-GPU Performance Test Suite...\n" << std::endl; 
+   std::cout << "\nStarting Multi-GPU Performance Test Suite...\n" << std::endl; 
    
    // Determine the number of recognized CUDA enabled devices
-   checkCudaErrors(cudaGetDeviceCount(&(params.nDevices)));
+   checkCudaErrors(cudaGetDeviceCount(&(benchParams.nDevices)));
 
    // Exit if system contains no devices
-   if (params.nDevices <= 0) {
+   if (benchParams.nDevices <= 0) {
       std::cout << "No devices found...aborting benchmarks." << std::endl;
       exit(-1);
    }
@@ -68,11 +67,11 @@ int main (int argc, char **argv) {
    // Setup benchmark parameters
    if (argc == 1) { 
       // No input file, use default parameters
-      params.SetDefault();
+      benchParams.SetDefault();
    
    } else if (argc == 2) {       
       // Parse input file and set parameter class local variables
-      params.ParseParamFile(std::string(argv[1]));
+      benchParams.ParseParamFile(std::string(argv[1]));
 
    } else {
       // Unknown input parameter list, abort test
@@ -84,22 +83,28 @@ int main (int argc, char **argv) {
    // Class constructor parses system topology from device files (linux)
    std::string topoFileName ="./results/topology.out";
    std::ofstream topoFile(topoFileName.c_str());
-   topo.PrintTopology(topoFile);
+   sysTopo.PrintTopology(topoFile);
+
+   cudaDeviceProp *devProps = (cudaDeviceProp *) calloc (sizeof(cudaDeviceProp), benchParams.nDevices);
+
+   // Aquire device properties for each CUDA enabled GPU
+   GetAllDeviceProps(devProps, benchParams.nDevices);
+
+   // Output device properties for each CUDA enabled GPU to file
+   PrintDeviceProps(devProps, benchParams);
 
    // Print device parameters for user/script parsing
-   params.PrintParams();
+   benchParams.PrintParams();
 
    // Run the benchmark per parameters defines in params
-   RunTestSuite(params, topo);
+   RunTestSuite(devProps, benchParams, sysTopo);
 
+   free(devProps);
+   
    return 0;
 }
 
-void RunTestSuite(BenchParams &params, SystemTopo &topo) {
-   cudaDeviceProp *props = (cudaDeviceProp *) calloc (sizeof(cudaDeviceProp), params.nDevices);
-
-   // Aquire device properties for each CUDA enabled GPU
-   GetAllDeviceProps(props, params.nDevices);
+void RunTestSuite(cudaDeviceProp *props, BenchParams &params, SystemTopo &topo) {
 
    if (params.runMemoryOverheadTest) {
       
@@ -131,16 +136,8 @@ void RunTestSuite(BenchParams &params, SystemTopo &topo) {
 
    }
 
-   // Output device properties for each CUDA enabled GPU
-   if (params.printDevProps) {
-      PrintDeviceProps(props, params);
-   }
-
    std::cout << "\nBenchmarks complete!\n" << std::endl;
 
-   free(props);
-
-   return;
 }
 
 void TestMemoryOverhead(cudaDeviceProp *props, BenchParams &params, SystemTopo &topo) {
@@ -223,13 +220,12 @@ void TestMemoryOverhead(cudaDeviceProp *props, BenchParams &params, SystemTopo &
    std::ofstream overheadResultsFile(dataFileName.c_str());
    PrintResults(overheadResultsFile, blockSteps, overheadData, params);
 
-   std::cout << "\nFinished Memory Overhead Test!" << std::endl;
+   std::cout << "\nMemory Overhead Test Complete!" << std::endl;
    
-   return;
 }
 
 void TestHostDeviceBandwidth(cudaDeviceProp *props, BenchParams &params, SystemTopo &topo) {
-   std::cout << "\nRunning host-device bandwidth test...\n" << std::endl;
+   std::cout << "\nRunning Host-Device and Device-Host Bandwidth Test...\n" << std::endl;
 
    params.numCopiesPerStepHD = 20;
    
@@ -243,17 +239,17 @@ void TestHostDeviceBandwidth(cudaDeviceProp *props, BenchParams &params, SystemT
    bandwidthData.resize(blockSteps.size());
    int testNum = 0;
    for (int socketIdx = 0; socketIdx < 1/*topo.NumSockets()*/; socketIdx++) {
-      topo.PinSocket(socketIdx);
+      //topo.PinSocket(socketIdx);
  
       for (int numaSrc = 0; numaSrc < topo.NumNodes(); numaSrc++) { 
-         topo.PinNumaNode(numaSrc);
+         //topo.PinNumaNode(numaSrc);
 
          //Host To Host Memory Transfers
          for (int numaDest = 0; numaDest < topo.NumNodes(); numaDest++) { 
             // HtoH Ranged Transfer - Pageable Memory
             std::cout << "Test " << testNum++ << " HtoH, Pageable Memory, Repeated Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Numa:" << numaDest << "|" << std::endl;
-            /*MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY, REPEATED, numaDest, numaSrc); 
-            std::cout << "Test " << testNum++ << " HtoH, Pageable Memory, Random\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Numa:" << numaDest << "|" << std::endl;
+            MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY, REPEATED, numaDest, numaSrc); 
+            /*std::cout << "Test " << testNum++ << " HtoH, Pageable Memory, Random\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Numa:" << numaDest << "|" << std::endl;
             MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY, RANDOM, numaDest, numaSrc); 
             std::cout << "Test " << testNum++ << " HtoH, Pageable Memory, Linear Inc Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Numa:" << numaDest << "|" << std::endl;
             MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_HOST_COPY, LINEAR_INC, numaDest, numaSrc); 
@@ -274,12 +270,12 @@ void TestHostDeviceBandwidth(cudaDeviceProp *props, BenchParams &params, SystemT
 
          //Host-Device PCIe Memory Transfers
          for (int currDev = 0; currDev < params.nDevices; currDev++) {
-            checkCudaErrors(cudaSetDevice(currDev));
+            //checkCudaErrors(cudaSetDevice(currDev));
 
             // HtoD Ranged Transfer - Pageable Memory
             std::cout << "Test " << testNum++ << " HtoD, Pageable Memory, Repeated Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Dev:" << currDev << "|" << std::endl;
-  /*          MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_DEVICE_COPY, REPEATED, currDev, numaSrc); 
-            std::cout << "Test " << testNum++ << " HtoD, Pageable Memory, Random Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Dev:" << currDev << "|" << std::endl;
+            MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_DEVICE_COPY, REPEATED, currDev, numaSrc); 
+          /*  std::cout << "Test " << testNum++ << " HtoD, Pageable Memory, Random Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Dev:" << currDev << "|" << std::endl;
             //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_DEVICE_COPY, RANDOM, currDev, numaSrc); 
             std::cout << "Test " << testNum++ << " HtoD, Pageable Memory, Linear Inc Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Dev:" << currDev << "|" << std::endl;
             //MemCopyRun(params, topo, blockSteps, bandwidthData, HOST_DEVICE_COPY, LINEAR_INC, currDev, numaSrc); 
@@ -288,13 +284,13 @@ void TestHostDeviceBandwidth(cudaDeviceProp *props, BenchParams &params, SystemT
 */
             // DtoH Ranged Transfer - Pageable Memory
             std::cout << "Test " << testNum++ << " DtoH, Pageable Memory, Repeated Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Dev:" << currDev << "|" << std::endl;
-  /*          MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY, REPEATED, currDev, numaSrc); 
-            std::cout << "Test " << testNum++ << " DtoH, Pageable Memory, Random Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Dev:" << currDev << "|" << std::endl;
-            //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY, RANDOM, currDev, numaSrc); 
+            MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY, REPEATED, numaSrc, currDev); 
+  /*          std::cout << "Test " << testNum++ << " DtoH, Pageable Memory, Random Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Dev:" << currDev << "|" << std::endl;
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY, RANDOM, numaSrc, currDev); 
             std::cout << "Test " << testNum++ << " DtoH, Pageable Memory, Linear Inc Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Dev:" << currDev << "|" << std::endl;
-            //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY, LINEAR_INC, currDev, numaSrc); 
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY, LINEAR_INC, numaSrc, currDev); 
             std::cout << "Test " << testNum++ << " DtoH, Pageable Memory, Linear Dec Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Dev:" << currDev << "|" << std::endl;
-            //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY, LINEAR_DEC, currDev, numaSrc); 
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY, LINEAR_DEC, numaSrc, currDev); 
 */
             // HtoD Ranged Transfer - Pinned Memory
             std::cout << "Test " << testNum++ << " HtoD, Pinned Memory, Repeated Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Dev:" << currDev << "|" << std::endl;
@@ -308,13 +304,13 @@ void TestHostDeviceBandwidth(cudaDeviceProp *props, BenchParams &params, SystemT
 */
             // DtoH Ranged Transfer - Pinned Memory
             std::cout << "Test " << testNum++ << " DtoH, Pinned Memory, Repeated Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Dev:" << currDev << "|" << std::endl;
-            MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY_PINNED, REPEATED, currDev, numaSrc); 
+            MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY_PINNED, REPEATED, numaSrc, currDev); 
   /*          std::cout << "Test " << testNum++ << " DtoH, Pinned Memory, Random Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Dev:" << currDev << "|" << std::endl;
-            //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY_PINNED, RANDOM, currDev, numaSrc); 
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY_PINNED, RANDOM, numaSrc, currDev); 
             std::cout << "Test " << testNum++ << " DtoH, Pinned Memory, Linear Inc\t\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Dev:" << currDev << "|" << std::endl;
-            //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY_PINNED, LINEAR_INC, currDev, numaSrc); 
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY_PINNED, LINEAR_INC, numaSrc, currDev); 
             std::cout << "Test " << testNum++ << " DtoH, Pinned Memory, Linear Dec Addr\t|CPU:" << socketIdx << " Numa Src:" << numaSrc << " Dest Dev:" << currDev << "|" << std::endl;
-            //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY_PINNED, LINEAR_DEC, currDev, numaSrc); 
+            //MemCopyRun(params, topo, blockSteps, bandwidthData, DEVICE_HOST_COPY_PINNED, LINEAR_DEC, numaSrc, currDev); 
     */     }
       }
    }
@@ -323,13 +319,12 @@ void TestHostDeviceBandwidth(cudaDeviceProp *props, BenchParams &params, SystemT
    std::ofstream bandwidthResultsFile(dataFileName.c_str());
    PrintResults(bandwidthResultsFile, blockSteps, bandwidthData, params);
 
-   std::cout << "\nHost-Device and Host-Host Bandwidth Tests complete!" << std::endl;
+   std::cout << "\nHost-Device and Host-Host Bandwidth Test complete!" << std::endl;
 
-   return;
 }
 
 void TestP2PDeviceBandwidth(cudaDeviceProp *props, BenchParams &params, SystemTopo &topo){
-   std::cout << "Running P2P device bandwidth test" << std::endl;
+   std::cout << "Running P2P Device Bandwidth Test..." << std::endl;
 
    //Device to Device transfers
    /*for (int srcDev = 0; currDev < params.nDevices; currDev++) {
@@ -343,7 +338,8 @@ void TestP2PDeviceBandwidth(cudaDeviceProp *props, BenchParams &params, SystemTo
          }
       }
    } */     
-   return;
+
+   std::cout << " P2P Device Bandwidth Test Complete!" << std::endl;
 }
 
 void TestPCIeCongestion(cudaDeviceProp *props, BenchParams &params, SystemTopo &topo) {
@@ -550,6 +546,7 @@ void AllocateMemBlock(SystemTopo &topo, void **destPtr, void **srcPtr,long  long
          checkCudaErrors(cudaHostRegister(*destPtr, numBytes, cudaHostRegisterPortable));
          break;
       case DEVICE_HOST_COPY:
+         checkCudaErrors(cudaSetDevice(srcIdx));
          checkCudaErrors(cudaMalloc(srcPtr, numBytes));
          *destPtr = topo.AllocMemByNode(destIdx, numBytes);
          break;
@@ -703,65 +700,58 @@ float TimedMemOp(void **MemBlk, long long NumBytes, MEM_OP TimedOp) {
 
 // Prints the device properties out to file based named depending on the 
 void PrintDeviceProps(cudaDeviceProp *props, BenchParams &params) {
-   std::cout << "\nSee " << params.devPropFile << " for information about your device's properties." << std::endl; 
    std::string devFileName = "./results/" + params.devPropFile;
-   std::ofstream deviceProps(devFileName.c_str());
+   std::ofstream devicePropsFile(devFileName.c_str());
+   std::stringstream devicePropsSS;
 
-   deviceProps << "-------- Device Properties --------" << std::endl;
+   devicePropsSS << "\n-----------------------------------------------------------------" << std::endl;
+   devicePropsSS << "------------------------ Device Properties ----------------------" << std::endl;
+   devicePropsSS << "-----------------------------------------------------------------" << std::endl;
 
+   int driverVersion = 0, runtimeVersion;
    for (int i = 0; i < params.nDevices; i++) {
-      deviceProps << props[i].name << std::endl;
-      deviceProps << "CUDA Capability: " << props[i].major << "." << props[i].minor << std::endl;
-      deviceProps << "PCI Bus/Device/Domain ID: " <<   props[i].pciBusID << ":" <<  props[i].pciDeviceID << ":" <<  props[i].pciDomainID << std::endl; 
-      deviceProps << "Clock: " << props[i].clockRate << std::endl; 
-      deviceProps << "Memory Clock: " << props[i].memoryClockRate << std::endl; 
-      deviceProps << "Memory Bus Width: " << props[i].memoryBusWidth << std::endl; 
-      deviceProps << "Theoretical BW: " << props[i].clockRate << std::endl;
-      deviceProps << "Global Mem: " << props[i].totalGlobalMem << std::endl;
+      cudaSetDevice(i);
+      cudaDriverGetVersion(&driverVersion);
+      cudaDriverGetVersion(&runtimeVersion);
 
- 
-/*        printf("  CUDA Driver Version / Runtime Version          %d.%d / %d.%d\n", driverVersion/1000, (driverVersion%100)/10, runtimeVersion/1000, (runtimeVersion%100)/10);
-        printf("  CUDA Capability Major/Minor version number:    %d.%d\n", deviceProp.major, deviceProp.minor);
-
-        SPRINTF(msg, "  Total amount of global memory:                 %.0f MBytes (%llu bytes)\n",
-                (float)deviceProp.totalGlobalMem/1048576.0f, (unsigned long long) deviceProp.totalGlobalMem);
-        printf("%s", msg);
-
-        printf("  (%2d) Multiprocessors, (%3d) CUDA Cores/MP:     %d CUDA Cores\n",
-               deviceProp.multiProcessorCount,
-               _ConvertSMVer2Cores(deviceProp.major, deviceProp.minor),
-               _ConvertSMVer2Cores(deviceProp.major, deviceProp.minor) * deviceProp.multiProcessorCount);
-        printf("  GPU Max Clock rate:                            %.0f MHz (%0.2f GHz)\n", deviceProp.clockRate * 1e-3f, deviceProp.clockRate * 1e-6f);
-
-#if CUDART_VERSION >= 5000
-        // This is supported in CUDA 5.0 (runtime API device properties)
-        printf("  Memory Clock rate:                             %.0f Mhz\n", deviceProp.memoryClockRate * 1e-3f);
-        printf("  Memory Bus Width:                              %d-bit\n",   deviceProp.memoryBusWidth);
-
-        if (deviceProp.l2CacheSize)
-        {
-            printf("  L2 Cache Size:                                 %d bytes\n", deviceProp.l2CacheSize);
-        }
-#else
-        // This only available in CUDA 4.0-4.2 (but these were only exposed in the CUDA Driver API)
-        int memoryClock;
-        getCudaAttribute<int>(&memoryClock, CU_DEVICE_ATTRIBUTE_MEMORY_CLOCK_RATE, dev);
-        printf("  Memory Clock rate:                             %.0f Mhz\n", memoryClock * 1e-3f);
-        int memBusWidth;
-        getCudaAttribute<int>(&memBusWidth, CU_DEVICE_ATTRIBUTE_GLOBAL_MEMORY_BUS_WIDTH, dev);
-        printf("  Memory Bus Width:                              %d-bit\n", memBusWidth);
-        int L2CacheSize;
-        getCudaAttribute<int>(&L2CacheSize, CU_DEVICE_ATTRIBUTE_L2_CACHE_SIZE, dev);
-
-        if (L2CacheSize)
-        {
-            printf("  L2 Cache Size:                                 %d bytes\n", L2CacheSize);
-        }
-*/
+      devicePropsSS << "Device " << i << ":\t\t\t\t" <<props[i].name << std::endl;
+      devicePropsSS << "CUDA Capability:\t\t\t" << props[i].major << "." << props[i].minor << std::endl;
+      devicePropsSS << "Driver Version / Runtime Version:\t" << (driverVersion / 1000) << "." << ((float) (driverVersion % 100) / 10) << " / " << (runtimeVersion / 1000) << "." << ((float) (runtimeVersion % 100) / 10) << std::endl;
+      devicePropsSS << "PCI Domain/Bus/Device ID:\t\t" <<   props[i].pciDomainID << ":" <<  props[i].pciBusID << ":" <<  props[i].pciDeviceID << std::endl; 
+      devicePropsSS << "Device Clock:\t\t\t\t" << ((float) props[i].clockRate * 1e-3f) << " (MHz)" << std::endl; 
+      devicePropsSS << "Memory Clock:\t\t\t\t" << ((float) props[i].memoryClockRate * 1e-3f) << " (MHz)" << std::endl; 
+      devicePropsSS << "Global Memory Bus Width:\t\t" << props[i].memoryBusWidth << " (Bits)" << std::endl; 
+      devicePropsSS << "Theoretical Memory BW:\t\t\t" << (((float) props[i].memoryClockRate * props[i].memoryBusWidth * 2) / 8.0 / pow(2,20)) << " (GB/s)" << std::endl;
+      devicePropsSS << "Global Memory Size:\t\t\t" << (props[i].totalGlobalMem / pow(2.0,20.0)) << " (MB)" << std::endl;
+      devicePropsSS << "Shared Memory Per Block:\t\t" << props[i].sharedMemPerBlock << " (Bytes)" << std::endl;
+      devicePropsSS << "Shared Memory Per Multiprocessor:\t" << props[i].sharedMemPerMultiprocessor << " (Bytes)" << std::endl;
+      devicePropsSS << "Total Constant Memory:\t\t\t" << props[i].totalConstMem << " (Bytes)" << std::endl;
+      devicePropsSS << "L2 Cache Size:\t\t\t\t" << ((float) props[i].l2CacheSize / pow(2.0, 10.0)) << " (KB)" << std::endl;
+      devicePropsSS << std::boolalpha;
+      devicePropsSS << "UVA Support:\t\t\t\t" << (props[i].unifiedAddressing ? true : false) << std::endl;
+      devicePropsSS << "Managed Memory Support:\t\t\t" << (props[i].managedMemory ? true : false) << std::endl;
+      devicePropsSS << "Mapped Memory Support:\t\t\t" << (props[i].canMapHostMemory ? true : false) << std::endl;
+      devicePropsSS << "Global L1 Cache Support:\t\t" << (props[i].globalL1CacheSupported ? true : false) << std::endl;
+      devicePropsSS << "Local L1 Cache Support:\t\t\t" << (props[i].localL1CacheSupported ? true : false) << std::endl;
+      devicePropsSS << "ECC Enables:\t\t\t\t" << (props[i].ECCEnabled ? true : false) << std::endl;
+      devicePropsSS << "Multi-GPU Board:\t\t\t" << (props[i].isMultiGpuBoard ? true : false) << std::endl;
+      devicePropsSS << "Multi-GPU Board Group ID:\t\t" << props[i].multiGpuBoardGroupID << std::endl;
+      devicePropsSS << "Comm/Exec Overlap Support:\t\t" << (props[i].asyncEngineCount ? true : false) << std::endl;
+      devicePropsSS << "Async Engine Count:\t\t\t" << props[i].asyncEngineCount << std::endl;
+      devicePropsSS << "Compute Mode:\t\t\t\t" << props[i].computeMode << std::endl;
+      devicePropsSS << "Integrated Device:\t\t\t" << (props[i].integrated ? true : false) << std::endl;
+      devicePropsSS << std::noboolalpha;
+      devicePropsSS << "-----------------------------------------------------------------" << std::endl;
    }
-   deviceProps << "-----------------------------------" << std::endl;
 
-   deviceProps.close();
+
+   if (params.printDevProps) 
+      std::cout << devicePropsSS.str(); 
+   else
+      std::cout << "\nSee " << params.devPropFile << " for information about your device's properties." << std::endl; 
+   devicePropsFile << devicePropsSS.str();
+   
+   devicePropsFile.close();
 }
 
 void PrintResults(std::ofstream &outFile, std::vector<long long> &steps, std::vector<std::vector<float> > &results, BenchParams &params) {

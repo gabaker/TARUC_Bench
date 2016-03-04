@@ -19,5 +19,11 @@ bench: $(BENCH_FILES) $(OFILES)
 nocpp:  $(BENCH_FILES) $(OFILES)
 	$(CC) $(CFLAGS) $(OFILES) $(BENCH_FILES) -o $(BENCH_EXE)
 
+debug:
+	$(CC) -g -G -D USING_CPP $(CFLAGS) topology.cu parameters.cpp $(BENCH_FILES) -o $(BENCH_EXE)
+
+debug_nocpp:
+	$(CC) -g -G $(CFLAGS) topology.cu parameters.cpp $(BENCH_FILES) -o $(BENCH_EXE)
+
 clean:
 	rm  *.o $(BENCH_EXE) $(NUMA_EXE)
