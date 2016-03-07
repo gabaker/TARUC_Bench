@@ -744,7 +744,26 @@ void PrintDeviceProps(cudaDeviceProp *props, BenchParams &params) {
       devicePropsSS << "-----------------------------------------------------------------" << std::endl;
    }
 
+   std::cout << nvmlInit() << std::endl;
 
+   unsigned int count = 0;
+   nvmlDevice_t deviceArray;// = (nvmlDevice_t *) malloc(sizeof(nvmlDevice_t) * 4);
+   //nvmlSystemGetTopologyGpuSet(1, &count, deviceArray);
+   std::cout << "cpuset dev count " << count << std::endl;
+   nvmlUnitGetCount(&count);
+   std::cout << "unit count " << count << std::endl;
+   nvmlDeviceGetCount(&count);
+   std::cout << "device count " << count << std::endl;
+   std::cout << nvmlShutdown() << std::endl;
+   
+   nvmlDeviceGetHandleByIndex(1, &deviceArray);
+   unsigned long cpuSet[2];
+   cpuSet[0] = 0;
+   cpuSet[1] = 0;
+
+
+   nvmlDeviceGetCpuAffinity(deviceArray, 2, cpuSet);
+   std::cout << "CPUSET: " << cpuSet[0] << " " << cpuSet[0] << std::endl;
    if (params.printDevProps) 
       std::cout << devicePropsSS.str(); 
    else

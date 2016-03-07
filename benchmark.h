@@ -2,7 +2,7 @@
 #include<cuda_runtime.h>
 #include<cuda.h>
 #include "helper_cuda.h"
-#include <nvml.h>
+#include "nvml.h"
 
 // C/C++ standard includes
 #include<memory>

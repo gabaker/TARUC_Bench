@@ -1,29 +1,28 @@
 CC=nvcc
 BENCH_FILES=benchmark.cu
 BENCH_EXE=run
-CFLAGS=-lpthread -lhwloc -Xcompiler -fopenmp -lnuma  -std=c++11
-IFLAGS=-I/usr/local/cuda-7.5/samples/common/inc
-OFILES=topology.o parameters.o
+O_FILES=topology.o parameters.o
+LDFLAGS=-lpthread -lhwloc -Xcompiler -fopenmp -lnuma -std=c++11 -L/usr/src/gdk/nvml/lib/ -lnvidia-ml
 
 all: bench
 
 topology.o: topology.cu
-	$(CC) $(CFLAGS) -c topology.cu -o topology.o
+	$(CC) $(LDFLAGS) -c topology.cu -o topology.o
 
 parameters.o: parameters.cpp
-	$(CC) $(CFLAGS) -c parameters.cpp -o parameters.o
+	$(CC) $(LDFLAGS) -c parameters.cpp -o parameters.o
 
-bench: $(BENCH_FILES) $(OFILES)
-	$(CC) -D USING_CPP $(CFLAGS) $(OFILES) $(BENCH_FILES) -o $(BENCH_EXE)
+bench: $(BENCH_FILES) $(O_FILES)
+	$(CC) -D USING_CPP $(LDFLAGS) $(O_FILES) $(BENCH_FILES) -o $(BENCH_EXE)
 
-nocpp:  $(BENCH_FILES) $(OFILES)
-	$(CC) $(CFLAGS) $(OFILES) $(BENCH_FILES) -o $(BENCH_EXE)
+nocpp:  $(BENCH_FILES) $(O_FILES)
+	$(CC) $(LDFLAGS) $(O_FILES) $(BENCH_FILES) -o $(BENCH_EXE)
 
 debug:
-	$(CC) -g -G -D USING_CPP $(CFLAGS) topology.cu parameters.cpp $(BENCH_FILES) -o $(BENCH_EXE)
+	$(CC) -g -G -D USING_CPP $(LDFLAGS) topology.cu parameters.cpp $(BENCH_FILES) -o $(BENCH_EXE)
 
 debug_nocpp:
-	$(CC) -g -G $(CFLAGS) topology.cu parameters.cpp $(BENCH_FILES) -o $(BENCH_EXE)
+	$(CC) -g -G $(LDFLAGS) topology.cu parameters.cpp $(BENCH_FILES) -o $(BENCH_EXE)
 
 clean:
 	rm  *.o $(BENCH_EXE) $(NUMA_EXE)
