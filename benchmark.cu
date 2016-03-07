@@ -27,7 +27,6 @@ void TestTaskScalability(cudaDeviceProp *props, BenchParams &params, SystemTopo 
 
 // Test Subfunctions
 void MemCopyRun(BenchParams &params, SystemTopo &topo, std::vector<long long> &blockSteps, std::vector<std::vector<float> > &bandwidthData, MEM_OP copyType, MEM_PATTERN patternType, int destIdx, int srcIdx); 
-//void MemCopyRun(BenchParams &params, char *destPtr, char *srcPtr, std::vector<long long> &blockSteps, std::vector<std::vector<float> > &bandwidthData, MEM_OP copyType, MEM_PATTERN patternType, int destIdx = 0, int srcIdx = 0);
 float TimedMemOp(void **MemBlk, long long NumBytes, MEM_OP TimedOp); 
 float TimedMemCopyStep(char * destPtr, char *srcPtr, long stepSize, long long blockSize, int numCopiesPerStep, MEM_OP copyType, MEM_PATTERN patternType, int destIdx = 0, int srcIdx = 0);
 void MemCopyOp(char * destPtr, char *srcPtr, long stepSize, long long blockSize, int numCopiesPerStep, MEM_OP copyType, int destIdx = 0, int srcIdx = 0);
@@ -35,7 +34,8 @@ void MemCopyOp(char * destPtr, char *srcPtr, long stepSize, long long blockSize,
 // Support functions
 void AllocateMemBlock(SystemTopo &topo, void **destPtr, void **srcPtr, long long numBytes, MEM_OP copyType, int destIdx = 0, int srcIdx = 0);
 void FreeMemBlock(SystemTopo &topo, void* destPtr, void *srcPtr, long long numBytes, MEM_OP copyType, int destIdx = 0, int srcIdx = 0);
-int CalcRunSteps(std::vector<long long> &blockSteps, long long startStep, long long stopStep, long long numSteps); 
+int CalcRunSteps(std::vector<long long> &blockSteps, long long startStep, long long stopStep, long long numSteps);
+void SetMemBlockTransfer(SystemTopo &topo, void *destPtr, void *srcPtr, long long numBytes, MEM_OP copyType, int destIdx, int srcIdx, long long value); 
 
 // Device Properties
 void GetAllDeviceProps(cudaDeviceProp *props, int dCount);
@@ -360,7 +360,8 @@ void MemCopyRun(BenchParams &params, SystemTopo &topo, std::vector<long long> &b
    long long blockSize = blockSteps[totalSteps - 1 ];
 
    AllocateMemBlock(topo, (void **) &destPtr, (void **) &srcPtr, blockSize, copyType, destIdx, srcIdx);
-
+   SetMemBlockTransfer(topo, (void *) destPtr, (void *) srcPtr, blockSize, copyType, destIdx, srcIdx, -1);
+   
    for (long stepNum = 0; stepNum < totalSteps; ++stepNum) { 
 
       bandwidthData[stepNum].push_back(TimedMemCopyStep((char *) destPtr, (char *) srcPtr, blockSteps[stepNum], blockSize, params.numCopiesPerStepHD, copyType, patternType, destIdx, srcIdx));
@@ -528,6 +529,60 @@ void FreeMemBlock(SystemTopo &topo, void* destPtr, void *srcPtr, long long numBy
          break;
       default:
          std::cout << "Error: unrecognized memory copy operation type for deallocation" << std::endl; 
+         break;
+   }
+}
+
+void SetMemBlockTransfer(SystemTopo &topo, void *destPtr, void *srcPtr, long long numBytes, MEM_OP copyType, int destIdx, int srcIdx, long long value) {
+   switch (copyType) {
+      case HOST_HOST_COPY: 
+         memset(destPtr, value, numBytes);
+         memset(srcPtr, value, numBytes);
+         break;
+      case HOST_HOST_COPY_PINNED:  
+         memset(destPtr, value, numBytes);
+         memset(srcPtr, value, numBytes);
+         break;
+      case DEVICE_HOST_COPY:
+         checkCudaErrors(cudaSetDevice(srcIdx));
+         checkCudaErrors(cudaMemset(srcPtr, value, numBytes));
+         memset(destPtr, value, numBytes);
+         break;
+      case DEVICE_HOST_COPY_PINNED:
+         checkCudaErrors(cudaSetDevice(srcIdx));
+         checkCudaErrors(cudaMemset(srcPtr, value, numBytes));
+         memset(destPtr, value, numBytes);
+         break;
+      case HOST_DEVICE_COPY:
+         memset(srcPtr, value, numBytes);
+         checkCudaErrors(cudaSetDevice(destIdx));
+         checkCudaErrors(cudaMemset(destPtr, value, numBytes));
+         break;
+      case HOST_DEVICE_COPY_PINNED:
+         memset(srcPtr, value, numBytes);
+         checkCudaErrors(cudaSetDevice(destIdx));
+         checkCudaErrors(cudaMemset(destPtr, value, numBytes));
+         break;
+      case PEER_COPY_NO_UVA: 
+         checkCudaErrors(cudaSetDevice(srcIdx));
+         checkCudaErrors(cudaMemset(srcPtr, value, numBytes));
+         checkCudaErrors(cudaSetDevice(destIdx));
+         checkCudaErrors(cudaMemset(destPtr, value, numBytes));
+         break;
+      case DEVICE_DEVICE_COPY:
+         checkCudaErrors(cudaSetDevice(srcIdx));
+         checkCudaErrors(cudaMemset(srcPtr, value, numBytes));
+         checkCudaErrors(cudaSetDevice(destIdx));
+         checkCudaErrors(cudaMemset(destPtr, value, numBytes));
+         break;
+      case COPY_UVA:
+         checkCudaErrors(cudaSetDevice(srcIdx));
+         checkCudaErrors(cudaMemset(srcPtr, value, numBytes));
+         checkCudaErrors(cudaSetDevice(destIdx));
+         checkCudaErrors(cudaMemset(destPtr, value, numBytes));
+         break;
+      default:
+         std::cout << "Error: unrecognized memory copy operation type for mem set" << std::endl; 
          break;
    }
 }
@@ -744,7 +799,7 @@ void PrintDeviceProps(cudaDeviceProp *props, BenchParams &params) {
       devicePropsSS << "-----------------------------------------------------------------" << std::endl;
    }
 
-   std::cout << nvmlInit() << std::endl;
+/*   std::cout << nvmlInit() << std::endl;
 
    unsigned int count = 0;
    nvmlDevice_t deviceArray;// = (nvmlDevice_t *) malloc(sizeof(nvmlDevice_t) * 4);
@@ -764,7 +819,7 @@ void PrintDeviceProps(cudaDeviceProp *props, BenchParams &params) {
 
    nvmlDeviceGetCpuAffinity(deviceArray, 2, cpuSet);
    std::cout << "CPUSET: " << cpuSet[0] << " " << cpuSet[0] << std::endl;
-   if (params.printDevProps) 
+  */ if (params.printDevProps) 
       std::cout << devicePropsSS.str(); 
    else
       std::cout << "\nSee " << params.devPropFile << " for information about your device's properties." << std::endl; 
