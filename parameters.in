@@ -4,7 +4,7 @@ printDevProps=true
 devPropFile=device_info.out
 topoFile=topology.in
 ------------ All Tests ----------
-runAllDevices=true
+runAllDevices=false
 usePinnedMem=true
 -------- Memory Overhead --------
 runMemOverheadTest=false
@@ -18,9 +18,9 @@ runRangeTestHD=true
 runBurstHD=true
 runSustainedHD=true
 runAllPatternsHD=false
-numCopiesPerStepHD=5
+numCopiesPerStepHD=10
 range min=10
-range max=150000
+range max=150000000
 range step=10
 --------- P2P Bandwidth ---------
 runP2PBandwidthTest=false

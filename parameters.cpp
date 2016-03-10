@@ -218,3 +218,6 @@ void BenchParams::PrintParams() {
    //read params out to command line
    outParamFile.close();
 }
+
+
+

@@ -7,8 +7,8 @@
 #ifndef PARAM_CLASS_INC
 #define PARAM_CLASS_INC
 
+#include<math.h>
 class BenchParams {
-
 
    public:
       std::string inputFile;

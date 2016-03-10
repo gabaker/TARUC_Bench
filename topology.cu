@@ -18,7 +18,6 @@ void SystemTopo::PinSocket(int socketIdx) {
    hwloc_obj_t socket = hwloc_get_obj_by_depth(topology, SocketDepth, socketIdx);
    
    hwloc_set_cpubind(topology, socket->cpuset, HWLOC_CPUBIND_THREAD | HWLOC_CPUBIND_NOMEMBIND | HWLOC_CPUBIND_STRICT);
-
 }
 
 void SystemTopo::PinCoreBySocket(int coreIdx, int socketIdx) {
@@ -28,19 +27,38 @@ void SystemTopo::PinCoreBySocket(int coreIdx, int socketIdx) {
 */
 }
 
-void * SystemTopo::AllocMemByNode(int nodeIdx, long numBytes) {
+void * SystemTopo::AllocMemByNode(int nodeIdx, long long numBytes) {
    hwloc_obj_t node = hwloc_get_obj_by_depth(topology, NodeDepth, nodeIdx);
 
    return hwloc_alloc_membind_policy_nodeset(topology, numBytes, node->nodeset, HWLOC_MEMBIND_BIND, HWLOC_MEMBIND_NOCPUBIND | HWLOC_MEMBIND_STRICT);
 }
 
-void * SystemTopo::AllocMemBySocket(int socketIdx, long numBytes) {
+void * SystemTopo::AllocMemBySocket(int socketIdx, long long numBytes) {
    hwloc_obj_t socket = hwloc_get_obj_by_depth(topology, SocketDepth, socketIdx);
 
    return hwloc_alloc_membind_policy_nodeset(topology, numBytes, socket->nodeset, HWLOC_MEMBIND_BIND, HWLOC_MEMBIND_NOCPUBIND | HWLOC_MEMBIND_STRICT);
 }
 
-void SystemTopo::FreeMem(void *addr, long numBytes) {
+void SystemTopo::AllocDeviceMem(void ** addr, long long numBytes, int deviceIdx) {
+   checkCudaErrors(cudaSetDevice(deviceIdx));
+   checkCudaErrors(cudaMalloc(addr, numBytes));
+}
+
+void SystemTopo::SetDeviceMem(void *addr, int value, long long numBytes, int deviceIdx) {
+   checkCudaErrors(cudaSetDevice(deviceIdx));
+   checkCudaErrors(cudaMemset(addr, value, numBytes));
+}
+
+void SystemTopo::SetHostMem(void *addr, int value, long long numBytes) {
+   memset(addr, value, numBytes);
+}
+
+void SystemTopo::FreeDeviceMem(void *addr, int deviceIdx) {
+   checkCudaErrors(cudaSetDevice(deviceIdx));
+   checkCudaErrors(cudaFree(addr));
+}
+
+void SystemTopo::FreeMem(void *addr, long long numBytes) {
    hwloc_free(topology, addr, numBytes);
 }    
  
@@ -61,12 +79,14 @@ void SystemTopo::PrintTopology(std::ofstream &OutFile) {
    outTopoStr << "------------------------ System Topology ------------------------" << std::endl;
    outTopoStr << "-----------------------------------------------------------------" << std::endl;
    outTopoStr << "\tSockets:\t\t" << SocketsInSystem << std::endl; 
+   outTopoStr << "\tNUMA Nodes:\t\t" << NodesInSystem << std::endl; 
    outTopoStr << "\tTotal Cores\t\t" << CoresInSystem << std::endl;
    outTopoStr << "\tTotal PUs:\t\t" << PUsInSystem << std::endl;
    outTopoStr << "\tCores Per Socket:\t" << CoresPerSocket << std::endl;
    outTopoStr << "\tPUs Per Core:\t\t" << PUsPerCore << std::endl;
    outTopoStr << "\tHyperthreaded:\t\t" << std::boolalpha << HyperThreaded << std::noboolalpha << std::endl;
    outTopoStr << "\tSymmetric Topology:\t" << std::boolalpha << SymmetricTopo << std::noboolalpha << std::endl;
+   outTopoStr << "\tGPU Accelerators:\t" << NumDevices << std::endl;
    outTopoStr << "-----------------------------------------------------------------" << std::endl;
    outTopoStr << "------------------------- Topology Tree -------------------------" << std::endl;
    outTopoStr << "-----------------------------------------------------------------" << std::endl;
@@ -109,7 +129,6 @@ void SystemTopo::PrintTopology(std::ofstream &OutFile) {
 
    std::cout << outTopoStr.str();
    if (OutFile.is_open()) {
-      OutFile << NodesInSystem << "\n" << SocketsInSystem << "\n" << NumGPUs << std::endl;
       OutFile << outTopoStr.str();
    }
 }
@@ -133,20 +152,79 @@ void SystemTopo::ParseTopology() {
    HyperThreaded = (PUsPerCore != 1) ? true : false;
    SymmetricTopo = (hwloc_get_root_obj(topology)->symmetric_subtree != 0) ? true : false;
 
-   checkCudaErrors(cudaGetDeviceCount(&NumGPUs));
-   
+   checkCudaErrors(cudaGetDeviceCount(&NumDevices));
+   GetAllDeviceProps();
 }
+
+// Prints the device properties out to file based named depending on the 
+void SystemTopo::PrintDeviceProps(BenchParams &params) {
+   std::string devFileName = "./results/" + params.devPropFile;
+   std::ofstream devicePropsFile(devFileName.c_str());
+   std::stringstream devicePropsSS;
+
+   devicePropsSS << "\n-----------------------------------------------------------------" << std::endl;
+   devicePropsSS << "------------------------ Device Properties ----------------------" << std::endl;
+   devicePropsSS << "-----------------------------------------------------------------" << std::endl;
+
+   cudaDeviceProp *props = devProps;
+
+   int driverVersion = 0, runtimeVersion = 0;
+   for (int i = 0; i < NumDevices; i++) {
+      cudaSetDevice(i);
+      cudaDriverGetVersion(&driverVersion);
+      cudaDriverGetVersion(&runtimeVersion);
+
+      devicePropsSS << "Device " << i << ":\t\t\t\t" <<props[i].name << std::endl;
+      devicePropsSS << "CUDA Capability:\t\t\t" << props[i].major << "." << props[i].minor << std::endl;
+      devicePropsSS << "Driver Version / Runtime Version:\t" << (driverVersion / 1000) << "." << ((float) (driverVersion % 100) / 10) << " / " << (runtimeVersion / 1000) << "." << ((float) (runtimeVersion % 100) / 10) << std::endl;
+      devicePropsSS << "PCI Domain/Bus/Device ID:\t\t" <<   props[i].pciDomainID << ":" <<  props[i].pciBusID << ":" <<  props[i].pciDeviceID << std::endl; 
+      devicePropsSS << "Device Clock:\t\t\t\t" << ((float) props[i].clockRate * 1e-3f) << " (MHz)" << std::endl; 
+      devicePropsSS << "Memory Clock:\t\t\t\t" << ((float) props[i].memoryClockRate * 1e-3f) << " (MHz)" << std::endl; 
+      devicePropsSS << "Global Memory Bus Width:\t\t" << props[i].memoryBusWidth << " (Bits)" << std::endl; 
+      devicePropsSS << "Theoretical Memory BW:\t\t\t" << (((float) props[i].memoryClockRate * props[i].memoryBusWidth * 2) / 8.0 / pow(2,20)) << " (GB/s)" << std::endl;
+      devicePropsSS << "Global Memory Size:\t\t\t" << (props[i].totalGlobalMem / pow(2.0,20.0)) << " (MB)" << std::endl;
+      devicePropsSS << "Shared Memory Per Block:\t\t" << props[i].sharedMemPerBlock << " (Bytes)" << std::endl;
+      devicePropsSS << "Shared Memory Per Multiprocessor:\t" << props[i].sharedMemPerMultiprocessor << " (Bytes)" << std::endl;
+      devicePropsSS << "Total Constant Memory:\t\t\t" << props[i].totalConstMem << " (Bytes)" << std::endl;
+      devicePropsSS << "L2 Cache Size:\t\t\t\t" << ((float) props[i].l2CacheSize / pow(2.0, 10.0)) << " (KB)" << std::endl;
+      devicePropsSS << std::boolalpha;
+      devicePropsSS << "UVA Support:\t\t\t\t" << (props[i].unifiedAddressing ? true : false) << std::endl;
+      devicePropsSS << "Managed Memory Support:\t\t\t" << (props[i].managedMemory ? true : false) << std::endl;
+      devicePropsSS << "Mapped Memory Support:\t\t\t" << (props[i].canMapHostMemory ? true : false) << std::endl;
+      devicePropsSS << "Global L1 Cache Support:\t\t" << (props[i].globalL1CacheSupported ? true : false) << std::endl;
+      devicePropsSS << "Local L1 Cache Support:\t\t\t" << (props[i].localL1CacheSupported ? true : false) << std::endl;
+      devicePropsSS << "ECC Enables:\t\t\t\t" << (props[i].ECCEnabled ? true : false) << std::endl;
+      devicePropsSS << "Multi-GPU Board:\t\t\t" << (props[i].isMultiGpuBoard ? true : false) << std::endl;
+      devicePropsSS << "Multi-GPU Board Group ID:\t\t" << props[i].multiGpuBoardGroupID << std::endl;
+      devicePropsSS << "Comm/Exec Overlap Support:\t\t" << (props[i].asyncEngineCount ? true : false) << std::endl;
+      devicePropsSS << "Async Engine Count:\t\t\t" << props[i].asyncEngineCount << std::endl;
+      devicePropsSS << "Compute Mode:\t\t\t\t" << props[i].computeMode << std::endl;
+      devicePropsSS << "Integrated Device:\t\t\t" << (props[i].integrated ? true : false) << std::endl;
+      devicePropsSS << std::noboolalpha;
+      devicePropsSS << "-----------------------------------------------------------------" << std::endl;
+   }
+
+   if (params.printDevProps) 
+      std::cout << devicePropsSS.str(); 
+   else
+      std::cout << "\nSee " << params.devPropFile << " for information about your device's properties." << std::endl; 
+   devicePropsFile << devicePropsSS.str();
+   
+   devicePropsFile.close();
+}
+
+
 
 //SystemTopo Constructor, initializes hwloc topology
 SystemTopo::SystemTopo() {
    InitTopology();
    ParseTopology();
-
 }
 
 //SystemTopo destructor, free hwloc topology
 SystemTopo::~SystemTopo() {
-   FreeTopology();
+   hwloc_topology_destroy(topology);
+   free(devProps);
 }
 
 //return a copy of the system topology
@@ -159,10 +237,6 @@ void SystemTopo::InitTopology() {
    hwloc_topology_load(topology);
    //hwloc_topology_set_flags(topology, HWLOC_TOPOLOGY_FLAG_IO_DEVICES | HWLOC_TOPOLOGY_FLAG_IO_BRIDGES);
 
-}
-
-void SystemTopo::FreeTopology() { 
-   hwloc_topology_destroy(topology);
 }
 
 int SystemTopo::NumNodes() {
@@ -187,5 +261,28 @@ int SystemTopo::NumCoresPerSocket() {
 
 int SystemTopo::NumPUsPerCore() {
    return PUsPerCore;
+}
+
+int SystemTopo::NumGPUs() {
+   return NumDevices;
+}
+
+// function for cleaning up device state including profile data
+// to be used before and after any test in benchmark suite.
+void SystemTopo::ResetDevices() {
+   for (int devNum = 0; devNum < NumDevices; ++devNum) {
+      checkCudaErrors(cudaSetDevice(devNum));
+      checkCudaErrors(cudaDeviceReset());
+   }
+}
+
+// Creates an array of cudaDeviceProp structs with populated data
+// located in a pre-allocated section of memory
+void SystemTopo::GetAllDeviceProps() {
+   devProps = (cudaDeviceProp *) calloc (sizeof(cudaDeviceProp), NumDevices);
+   
+   for (int i = 0; i < NumDevices; ++i) {
+      checkCudaErrors(cudaGetDeviceProperties(&devProps[i], i));
+   }
 }
 

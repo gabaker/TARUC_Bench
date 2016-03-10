@@ -20,7 +20,8 @@
 #include<sys/time.h>
 #include<sstream>
 
-//newer c++ timing lib
+// Newer c++ timing lib 
+// Does not compile with older C++ compiler versions (i.e. RHEL 6 standard g++ version)
 #ifdef USING_CPP
 #include<chrono>
 #endif
@@ -33,6 +34,8 @@
 #include<numa.h>
 #include<sched.h>
 
+// Time conversions for varying timing functions that are compatible 
+// with cuda, c++11 or older C++ versions
 #define MILLI_TO_MICRO (1.0 / 1000.0)
 #define MICRO_TO_MILLI (1000.0)
 #define NANO_TO_MILLI (1.0 / 1000000.0)
@@ -40,6 +43,8 @@
 
 #define MAX_PATTERN_SIZE 10000000
 
+// Memory access patterns to test help adjust small PCI transfer latency for possible Host 
+// caching effects with repeated transfers of memory blocks
 typedef enum {
    REPEATED,
    RANDOM,
@@ -49,29 +54,38 @@ typedef enum {
    BURST
 } MEM_PATTERN;
 
+// Memory allocation types to be used in benchmark suppost functions to adjust behavior of 
+// test run depending on benchmark parameters and cases being studied
 typedef enum {
-   DEVICE_MALLOC,
-   HOST_MALLOC,
-   HOST_PINNED_MALLOC,
-   DEVICE_FREE,
-   HOST_FREE,
-   HOST_PINNED_FREE,
-   HOST_DEVICE_COPY,
-   HOST_DEVICE_COPY_PINNED,
-   DEVICE_HOST_COPY,
-   DEVICE_HOST_COPY_PINNED,
-   DEVICE_DEVICE_COPY,
-   HOST_HOST_COPY,
-   HOST_HOST_COPY_PINNED,
-   PEER_COPY_NO_UVA,
-   COPY_UVA
+   DEVICE_MALLOC,             // Device memory allocation, single memory block
+   HOST_MALLOC,               // Host pageable memory allocation, single memory block
+   HOST_PINNED_MALLOC,        // Host pinned memory allocation, single memory block
+   DEVICE_FREE,               // Device memory deallocation, single memory block
+   HOST_FREE,                 // Host pageable memory deallocation, single memory block
+   HOST_PINNED_FREE,          // Host pinned memory deallocation, single memory block
+
+   HOST_HOST_COPY,            // Host-To-Host Copy, pageable memory
+   HOST_PINNED_HOST_COPY,     // Host-To-Host Copy, src pinned, dest pageable
+   HOST_HOST_PINNED_COPY,     // Host-To-Host Copy, dest pinned, src pageable
+   HOST_HOST_COPY_PINNED,     // Host-To-Host Copy, both src/dest pinned memory
+
+   HOST_DEVICE_COPY,          // Host-To-Device copy, pageable host memory
+   HOST_PINNED_DEVICE_COPY,   // Host-To-Device copy, pinned host memory
+   DEVICE_HOST_COPY,          // Device-To-Host copy, pageable host memory
+   DEVICE_HOST_PINNED_COPY,   // Device-To-Host copy, pinned host memory
+   DEVICE_DEVICE_COPY,        // Device-To-Device copy, no peer support
+   PEER_COPY_NO_UVA,          // Peer-to-Peer device copy, no uva support
+   COPY_UVA                   // General UVA copy, CUDA runtime copy based on pointer addressing
+
 } MEM_OP;
 
+// Header for BenchParams class, user to read in and print out benchmark parameters
 #ifndef PARAM_CLASS_INC
 #include "parameters.h"
 #define PARAM_CLASS_INC
 #endif
 
+// Header for system topology detection; abstraction for numa.h and hwloc libraries
 #ifndef TOPOLOGY_CLASS_INC
 #include "topology.h"
 #define TOPOLOGY_CLASS_INC
