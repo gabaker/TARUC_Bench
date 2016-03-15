@@ -4,6 +4,46 @@
 #include "topology.h"
 //#endif
 
+bool SystemTopo::DeviceUVA(int deviceIdx) {
+   return (devProps[deviceIdx].unifiedAddressing ? true : false);
+}
+  
+bool SystemTopo::DeviceGroupUVA(int deviceA, int deviceB) {
+   bool aUVA = (devProps[deviceA].unifiedAddressing ? true : false);
+   bool bUVA = (devProps[deviceB].unifiedAddressing ? true : false);
+
+   return aUVA && bUVA;
+}
+
+bool SystemTopo::DeviceGroupCanP2P(int deviceA, int deviceB) {
+   int aCanUVA = 0, bCanUVA = 0;
+   
+   checkCudaErrors(cudaDeviceCanAccessPeer(&aCanUVA, deviceA, deviceB));
+   checkCudaErrors(cudaDeviceCanAccessPeer(&bCanUVA, deviceB, deviceA));
+
+   return ((aCanUVA && bCanUVA) ? true : false);
+}
+
+void SystemTopo::DeviceGroupSetP2P(int deviceA, int deviceB, bool status) {
+   int currDevice = 0;
+
+   checkCudaErrors(cudaGetDevice(&currDevice));
+
+   if (status) {
+         checkCudaErrors(cudaSetDevice(deviceA));
+         checkCudaErrors(cudaDeviceEnablePeerAccess(deviceA, 0));
+         checkCudaErrors(cudaSetDevice(deviceB));
+         checkCudaErrors(cudaDeviceEnablePeerAccess(deviceB, 0));
+   } else {
+         checkCudaErrors(cudaSetDevice(deviceA));
+         checkCudaErrors(cudaDeviceDisablePeerAccess(deviceA));
+         checkCudaErrors(cudaSetDevice(deviceB));
+         checkCudaErrors(cudaDeviceDisablePeerAccess(deviceB));
+   }
+
+   checkCudaErrors(cudaSetDevice(currDevice));
+}
+
 void SystemTopo::PinNumaNode(int nodeIdx) {
    hwloc_obj_t node = hwloc_get_obj_by_depth(topology, NodeDepth, nodeIdx); 
 

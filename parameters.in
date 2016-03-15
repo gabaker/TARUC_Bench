@@ -13,24 +13,24 @@ range min=10
 range max=1500000000
 range step=10
 ----- Host-Device Bandwidth -----
-runHDBandwidthTest=true
+runHDBandwidthTest=false
 runRangeTestHD=true
 runBurstHD=true
 runSustainedHD=true
 runAllPatternsHD=false
 numCopiesPerStepHD=10
 range min=10
-range max=150000000
+range max=15000000
 range step=10
 --------- P2P Bandwidth ---------
-runP2PBandwidthTest=false
-varyBlockSizeP2P=true
+runP2PBandwidthTest=true
+runRangeTestP2P=true
 runBurstP2P=true
 runSustainedP2P=true
-numCopiesPerStepP2P=1000
-range min=30
-range max=3500000000
-range step=30
+numCopiesPerStepP2P=10
+range min=10
+range max=15000000
+range step=10
 ---------------------------------
 runPCIeCongestionTest=false
 ---------------------------------

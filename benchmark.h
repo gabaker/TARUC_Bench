@@ -19,6 +19,7 @@
 #include<unistd.h>
 #include<sys/time.h>
 #include<sstream>
+#include<iomanip>
 
 // Newer c++ timing lib 
 // Does not compile with older C++ compiler versions (i.e. RHEL 6 standard g++ version)
@@ -40,8 +41,11 @@
 #define MICRO_TO_MILLI (1000.0)
 #define NANO_TO_MILLI (1.0 / 1000000.0)
 #define NANO_TO_MICRO (1.0 / 1000.0)
-
+#define NUM_PATTERNS 4
 #define MAX_PATTERN_SIZE 10000000
+#define BURST_BLOCK_SIZE pow(2, 24)
+#define HOST_MEM_TYPES 2
+
 
 // Memory access patterns to test help adjust small PCI transfer latency for possible Host 
 // caching effects with repeated transfers of memory blocks

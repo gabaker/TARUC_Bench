@@ -24,7 +24,7 @@ class SystemTopo
       //void PinPURange(int FirstPU, int LastPU);
       //void PinNumaNodeByPU(int puIdx); 
  
-      //Memory management by cpu/nodes
+      //Memory management by cpu/nodes/devices
       void * AllocMemByNode(int nodeIdx, long long numBytes);
       void * AllocMemBySocket(int socketIdx, long long numBytes);
       void AllocDeviceMem(void **addr, long long numBytes, int deviceIdx);
@@ -32,7 +32,11 @@ class SystemTopo
       void SetDeviceMem(void *addr, int value, long long numBytes, int deviceIdx);
       void FreeMem(void *addr, long long numBytes);     
       void FreeDeviceMem(void *addr, int deviceIdx);
-    
+      bool DeviceUVA(int deviceIdx);  
+      bool DeviceGroupUVA(int deviceA, int deviceB); 
+      bool DeviceGroupCanP2P(int deviceA, int deviceB);
+      void DeviceGroupSetP2P(int deviceA, int deviceB, bool status); 
+
       // Device Utility Functions
       void ResetDevices(); 
  
