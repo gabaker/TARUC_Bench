@@ -13,7 +13,7 @@ range min=10
 range max=1500000000
 range step=10
 ----- Host-Device Bandwidth -----
-runHDBandwidthTest=true
+runHDBandwidthTest=false
 runRangeTestHD=true
 runBurstHD=true
 runSustainedHD=true
@@ -23,8 +23,8 @@ range min=10
 range max=15000000
 range step=10
 --------- P2P Bandwidth ---------
-runP2PBandwidthTest=false
-runRangeTestP2P=true
+runP2PBandwidthTest=true
+runRangeTestP2P=false
 runBurstP2P=true
 runSustainedP2P=true
 numCopiesPerStepP2P=10
