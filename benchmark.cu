@@ -1051,20 +1051,19 @@ void PrintP2PBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std:
       std::cout << "----------------";
    std::cout << std::endl;
 
-   std::cout << "---------------------------------"; 
-   std::cout << "---------";
+   std::cout << "|\t|-----------------------|"; 
+   for (int i = 0; i < matrixWidth * 8 - 7; i++)
+      std::cout << "-";
+
    std::cout << " Destination ";
-   std::cout << "---------";
+   for (int i = 0; i < matrixWidth * 8 - 7; i++)
+      std::cout << "-";
    std::cout << "|" << std::endl;
    
    std::cout << "|\t| GPU   | Transfer\t";
    for (int i = 0; i < matrixWidth; i++)
       std::cout << "|---------------";
    std::cout << "|" << std::endl;
-
-   //for (int i = 0; i < matrixWidth; i++)
-     // std::cout << "----------------";
-   //std::cout << "-" << std::endl;
 
    std::cout << "|\t|   #   | Type\t\t|";
    for (int i = 0; i < matrixWidth; i++)
@@ -1125,14 +1124,13 @@ void PrintP2PBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std:
       std::cout << std::setprecision(5);     
       std::cout << std::endl;
       
-      if (i + 1 < matrixHeight && (i + 1 != ((float) matrixHeight / 2.0))) {
-         std::cout << "|\t|-----------------------";
+      if (i + 1 < matrixHeight && (i + 1 == ((float) matrixHeight / 2.0))) {
+         std::cout << "| Source|-----------------------";
          for (int i = 0; i < matrixWidth; i++)
             std::cout << "|---------------";
          std::cout << "|" << std::endl;
-
-      } else if (i + 1 < matrixHeight) {
-         std::cout << "| Source|-----------------------";
+      } else if (i + 1 < matrixHeight && (i + 1) % 4  ==  0) {
+         std::cout << "|\t|-----------------------";
          for (int i = 0; i < matrixWidth; i++)
             std::cout << "|---------------";
          std::cout << "|" << std::endl;
