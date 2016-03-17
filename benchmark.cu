@@ -408,7 +408,7 @@ void TestBurstP2PBandwidth(BenchParams &params, SystemTopo &topo, std::vector<st
          for (int destIdx = 0; destIdx < topo.NumGPUs(); destIdx++) { 
             // DtoD Burst Transfer - No Peer, No UVA
             burstData[srcIdx].push_back(convConst / BurstMemCopy(topo, blockSize, DEVICE_DEVICE_COPY, destIdx, srcIdx, params.numCopiesPerStepP2P)); 
-
+            std::cout << srcIdx << " " << destIdx << std::endl;
             // DtoD Burst Transfer - Peer, No UVA
             if (topo.DeviceGroupCanP2P(srcIdx, destIdx)) {
                topo.DeviceGroupSetP2P(srcIdx, destIdx, true);
@@ -1046,12 +1046,12 @@ void PrintP2PBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std:
    //topo.DeviceGroupUVA(srcIdx, destIdx))   
    //if (topo.DeviceGroupCanP2P(srcIdx, destIdx)) {
 
-   for (int i = 0; i < burstData.size(); i++) {
+   /*for (int i = 0; i < burstData.size(); i++) {
       for (int j = 0; j < burstData[i].size(); j++) {
          std::cout << burstData[i][j] << ",";
       }
       std::cout << std::endl;
-   }
+   }*/
 
    std::cout << "\nDevice-To-Device Unidirectional Memory Transfers" << std::endl;
    std::cout << "Transfer Block Size: " << blockSize << std::endl;
@@ -1067,7 +1067,8 @@ void PrintP2PBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std:
    
    std::cout << "|\t|   #   | Type\t\t|---------------------------------------------------------------|" << std::endl;
    std::cout << "|-------|-----------------------|---------------------------------------------------------------|" << std::endl;
-   std::vector<int> deviceIdxs(params.nDevices, 0);
+   std::vector<int> deviceIdxs;
+   deviceIdxs.resize(params.nDevices, 0);
    for (int i = 0; i < matrixHeight; ++i) {
 
       std::cout << "|\t|  " << i  / 4 <<  "\t|";
@@ -1083,10 +1084,10 @@ void PrintP2PBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std:
       }
       int dataIdx = 0;
       if (i % 4 == 0)
-         deviceIdxs = std::vector<int>(matrixWidth, 0);
+         deviceIdxs.resize(matrixWidth, 0);
       
       for (int j = 0; j < matrixWidth; ++j) {
-         std::cout << dataIdx + deviceIdxs[j];
+         //std::cout << dataIdx + deviceIdxs[j];
          if (i % 4 == 0) {
             std::cout << "\t\t" << burstData[i / 4][dataIdx + deviceIdxs[j]] << "\t\t|";
             deviceIdxs[j]++;

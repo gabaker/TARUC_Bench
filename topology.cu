@@ -20,7 +20,6 @@ bool SystemTopo::DeviceGroupCanP2P(int deviceA, int deviceB) {
    
    checkCudaErrors(cudaDeviceCanAccessPeer(&aCanUVA, deviceA, deviceB));
    checkCudaErrors(cudaDeviceCanAccessPeer(&bCanUVA, deviceB, deviceA));
-
    return ((aCanUVA && bCanUVA) ? true : false);
 }
 
@@ -30,14 +29,14 @@ void SystemTopo::DeviceGroupSetP2P(int deviceA, int deviceB, bool status) {
    checkCudaErrors(cudaGetDevice(&currDevice));
 
    if (status) {
-         checkCudaErrors(cudaSetDevice(deviceA));
-         checkCudaErrors(cudaDeviceEnablePeerAccess(deviceA, 0));
          checkCudaErrors(cudaSetDevice(deviceB));
+         checkCudaErrors(cudaDeviceEnablePeerAccess(deviceA, 0));
+         checkCudaErrors(cudaSetDevice(deviceA));
          checkCudaErrors(cudaDeviceEnablePeerAccess(deviceB, 0));
    } else {
-         checkCudaErrors(cudaSetDevice(deviceA));
-         checkCudaErrors(cudaDeviceDisablePeerAccess(deviceA));
          checkCudaErrors(cudaSetDevice(deviceB));
+         checkCudaErrors(cudaDeviceDisablePeerAccess(deviceA));
+         checkCudaErrors(cudaSetDevice(deviceA));
          checkCudaErrors(cudaDeviceDisablePeerAccess(deviceB));
    }
 
