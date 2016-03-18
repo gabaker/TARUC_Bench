@@ -394,7 +394,7 @@ void TestBurstP2PBandwidth(BenchParams &params, SystemTopo &topo, std::vector<st
    long long blockSize = BURST_BLOCK_SIZE;
 
    double convConst = (double) blockSize / (double) pow(2.0, 30.0); 
-   //(double) blockSize * (double) params.numCopiesPerStepHD * 1000 / (double) pow(2.0, 30.0);
+   
    int numSockets = 1;
    if (testSockets)
       numSockets = topo.NumSockets();
@@ -438,7 +438,7 @@ void TestBurstP2PBandwidth(BenchParams &params, SystemTopo &topo, std::vector<st
 
 void TestBurstHDBandwidth(BenchParams &params, SystemTopo &topo, std::vector<std::vector<float> > &burstData, bool testSockets, int &testNum) { 
    long long blockSize = BURST_BLOCK_SIZE;
-   double convConst =(double) blockSize / (double) pow(2.0, 30.0); //(double) blockSize * (double) params.numCopiesPerStepHD * 1000 / (double) pow(2.0, 30.0);
+   double convConst =(double) blockSize / (double) pow(2.0, 30.0); 
 
    int numSockets = 1;
    if (testSockets)
@@ -493,10 +493,6 @@ void TestBurstHHBandwidth(BenchParams &params, SystemTopo &topo, std::vector<std
    int matrixHeight = numPatterns * matrixWidth;
    burstData.resize(matrixHeight);
 
-   for (int idx = 0; idx < matrixHeight; ++idx) {
-      burstData[idx].resize(matrixWidth);
-   }
-   
    double convConst =(double) blockSize / (double) pow(2.0, 30.0); //(double) blockSize * (double) params.numCopiesPerStepHD * 1000 / (double) pow(2.0, 30.0);  
    for (int socketIdx = 0; socketIdx < numSockets; socketIdx++) {
       topo.PinSocket(socketIdx);
@@ -506,16 +502,16 @@ void TestBurstHHBandwidth(BenchParams &params, SystemTopo &topo, std::vector<std
          //Host-To-Host Memory Transfers
          for (int destIdx = 0; destIdx < topo.NumNodes(); destIdx++) { 
             // HtoH Ranged Transfer - Pageable Memory
-            burstData[srcIdx * stride][destIdx * stride] = convConst / BurstMemCopy(topo, blockSize, HOST_HOST_COPY, destIdx, srcIdx, params.numCopiesPerStepHD); 
+            burstData[srcIdx].push_back(convConst / BurstMemCopy(topo, blockSize, HOST_HOST_COPY, destIdx, srcIdx, params.numCopiesPerStepHD));        
 
             // HtoH Ranged Transfer - Pinned Memory Src Host
-            burstData[srcIdx * stride + 1][destIdx * stride] = convConst / BurstMemCopy(topo, blockSize, HOST_PINNED_HOST_COPY, destIdx, srcIdx, params.numCopiesPerStepHD); 
+            burstData[srcIdx].push_back(convConst / BurstMemCopy(topo, blockSize, HOST_PINNED_HOST_COPY, destIdx, srcIdx, params.numCopiesPerStepHD));        
             
             // HtoH Ranged Transfer - Pinned Memory Dest
-            burstData[srcIdx * stride][destIdx * stride + 1] = convConst / BurstMemCopy(topo, blockSize, HOST_HOST_PINNED_COPY, destIdx, srcIdx, params.numCopiesPerStepHD); 
+            burstData[srcIdx].push_back(convConst / BurstMemCopy(topo, blockSize, HOST_HOST_PINNED_COPY, destIdx, srcIdx, params.numCopiesPerStepHD));        
 
             // HtoH Ranged Transfer - Pinned Memory Both Hosts
-            burstData[srcIdx * stride + 1][destIdx * stride + 1] = convConst / BurstMemCopy(topo, blockSize, HOST_HOST_COPY_PINNED, destIdx, srcIdx, params.numCopiesPerStepHD);        
+            burstData[srcIdx].push_back(convConst / BurstMemCopy(topo, blockSize, HOST_HOST_COPY_PINNED, destIdx, srcIdx, params.numCopiesPerStepHD));        
          }
       }
    }
@@ -1091,7 +1087,7 @@ void PrintP2PBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std:
       
       if (i % 4 == 0) {
          deviceIdxs.resize(matrixWidth, 0);
-         deviceIdxs.assign(matrixWidth, 0);
+         //deviceIdxs.assign(matrixWidth, 0);
       }
       
       for (int j = 0; j < matrixWidth; ++j) {
@@ -1264,8 +1260,8 @@ void PrintHHBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std::
    if (false)
       numPatterns = NUM_PATTERNS;
 
-   int matrixWidth = HOST_MEM_TYPES * numSockets * topo.NumNodes();
-   int matrixHeight = numPatterns * matrixWidth;
+   int matrixWidth = HOST_MEM_TYPES * topo.NumNodes();
+   int matrixHeight = matrixWidth;
    
    std::cout << "\nHost-Host Multi-NUMA Unidirectional Memory Transfers:" << std::endl;
    std::cout << "Transfer Block Size: " << blockSize / BYTES_TO_MEGA << " (MB)"<< std::endl;
@@ -1335,7 +1331,9 @@ void PrintHHBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std::
             std::cout << " Page\t|    ";
     
          for (int j = 0; j < matrixWidth; ++j) {
-            std::cout << burstData[i][j] << "\t|    ";
+            //std::cout << i / HOST_MEM_TYPES << "," << j * 2 + i % HOST_MEM_TYPES << ".";
+            std::cout << burstData[i / HOST_MEM_TYPES][j * 2 + i % HOST_MEM_TYPES] << "\t|    ";
+            //std::cout << burstData[i / HOST_MEM_TYPES][i % 2 * matrixWidth + j] << "\t|    ";
          }
              
          std::cout << "\n|\t\t|\t|";
