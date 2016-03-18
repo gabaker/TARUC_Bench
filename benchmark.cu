@@ -393,7 +393,7 @@ void TestRangeP2PBandwidth(BenchParams &params, SystemTopo &topo, std::vector<lo
 void TestBurstP2PBandwidth(BenchParams &params, SystemTopo &topo, std::vector<std::vector<float> > &burstData, bool testSockets, int &testNum) { 
    long long blockSize = pow(2, 26); //set test size for 16 MB
 
-   double convConst =(double) blockSize * 1e3f / (double) pow(2.0, 30.0); 
+   double convConst = (double) blockSize / (double) pow(2.0, 30.0); 
    //(double) blockSize * (double) params.numCopiesPerStepHD * 1000 / (double) pow(2.0, 30.0);
    int numSockets = 1;
    if (testSockets)
@@ -747,7 +747,7 @@ float TimedMemCopyStep(char * destPtr, char *srcPtr, long stepSize, long long bl
       checkCudaErrors(cudaEventElapsedTime(&totalTime, start_e, stop_e));  
    }
 
-   return totalTime / (float) numCopiesPerStep;
+   return totalTime / 1e3f / (float) numCopiesPerStep;
 }
 
 void MemCopyOp(char * destPtr, char *srcPtr, long stepSize, long long blockSize, int numCopiesPerStep, MEM_OP copyType, int destIdx, int srcIdx) {
