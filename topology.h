@@ -38,6 +38,7 @@ class SystemTopo
       void DeviceGroupSetP2P(int deviceA, int deviceB, bool status); 
 
       // Device Utility Functions
+      void SetActiveDevice(int devIdx);
       void ResetDevices(); 
  
       //return class local variables

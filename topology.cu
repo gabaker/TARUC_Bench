@@ -79,13 +79,25 @@ void * SystemTopo::AllocMemBySocket(int socketIdx, long long numBytes) {
 }
 
 void SystemTopo::AllocDeviceMem(void ** addr, long long numBytes, int deviceIdx) {
+   int currDevice = 0;
+
+   checkCudaErrors(cudaGetDevice(&currDevice));
+
    checkCudaErrors(cudaSetDevice(deviceIdx));
    checkCudaErrors(cudaMalloc(addr, numBytes));
+
+   checkCudaErrors(cudaSetDevice(currDevice));
 }
 
 void SystemTopo::SetDeviceMem(void *addr, int value, long long numBytes, int deviceIdx) {
+    int currDevice = 0;
+
+   checkCudaErrors(cudaGetDevice(&currDevice));
+
    checkCudaErrors(cudaSetDevice(deviceIdx));
    checkCudaErrors(cudaMemset(addr, value, numBytes));
+
+   checkCudaErrors(cudaSetDevice(currDevice));
 }
 
 void SystemTopo::SetHostMem(void *addr, int value, long long numBytes) {
@@ -93,8 +105,18 @@ void SystemTopo::SetHostMem(void *addr, int value, long long numBytes) {
 }
 
 void SystemTopo::FreeDeviceMem(void *addr, int deviceIdx) {
+    int currDevice = 0;
+
+   checkCudaErrors(cudaGetDevice(&currDevice));
+
    checkCudaErrors(cudaSetDevice(deviceIdx));
    checkCudaErrors(cudaFree(addr));
+
+   checkCudaErrors(cudaSetDevice(currDevice));
+}
+
+void SystemTopo::SetActiveDevice(int devIdx) {
+   checkCudaErrors(cudaSetDevice(devIdx));
 }
 
 void SystemTopo::FreeMem(void *addr, long long numBytes) {

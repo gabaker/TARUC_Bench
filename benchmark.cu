@@ -150,7 +150,7 @@ void TestMemoryOverhead(BenchParams &params, SystemTopo &topo) {
    long long chunkSize = 0;
    int testNum = 0;
 
-   std::cout << "\nRunning Memory Overhead Test...\n" << std::endl;
+   std::cout << "\nRunning Ranged Memory Overhead Test...\n" << std::endl;
 
    // Only run overhead device cases on a single device
    // default to device 0
@@ -238,7 +238,7 @@ void TestHDBandwidth(BenchParams &params, SystemTopo &topo) {
 
    if (params.runBurstHD) {
       std::vector<std::vector<float> > burstData;
-      std::cout << "\nRunning Burst Bandwidth test...\n" << std::endl;
+      //std::cout << "\nRunning Burst HD Bandwidth test...\n" << std::endl;
 
       TestBurstHHBandwidth(params, topo, burstData, testSockets, testNum); 
       PrintHHBurstMatrix(params, topo, burstData, testSockets);
@@ -246,14 +246,14 @@ void TestHDBandwidth(BenchParams &params, SystemTopo &topo) {
       TestBurstHDBandwidth(params, topo, burstData, testSockets, testNum);  
       PrintHDBurstMatrix(params, topo, burstData, testSockets);
       
-      std::cout << "\nFinished Burst Bandwidth test!" << std::endl;
+      //std::cout << "\nFinished Burst HD Bandwidth test!" << std::endl;
    }
 
    if (params.runRangeTestHD) {
       std::vector<std::vector<float> > rangeData;
       std::vector<long long> blockSteps;
       
-      std::cout << "\nRunning Ranged Bandwidth test...\n" << std::endl;
+      std::cout << "\nRunning Ranged HD Bandwidth test...\n" << std::endl;
 
       CalcRunSteps(blockSteps, params.rangeHostDeviceBW[0], params.rangeHostDeviceBW[1], params.rangeHostDeviceBW[2]); 
       rangeData.resize(blockSteps.size());
@@ -278,7 +278,7 @@ void TestHDBandwidth(BenchParams &params, SystemTopo &topo) {
       std::ofstream bwResultsFile(dataFileName.c_str());
       PrintResults(bwResultsFile, blockSteps, rangeData, params);
       
-      std::cout << "\nRanged Bandwidth Test Complete!" << std::endl;
+      //std::cout << "\nRanged HD Bandwidth Test Complete!" << std::endl;
    }
 
    std::cout << "\nHost-Device and Host-Host Bandwidth Tests complete!" << std::endl;
@@ -299,15 +299,15 @@ void TestP2PBandwidth(BenchParams &params, SystemTopo &topo){
       params.numCopiesPerStepP2P = 1;
 
    if (params.runBurstP2P) {
-      std::cout << "\nRunning Peer Burst Bandwidth test...\n" << std::endl;
+      //std::cout << "\nRunning P2P Burst Bandwidth test..." << std::endl;
       TestBurstP2PBandwidth(params, topo, burstData, testSockets, testNum); 
       
       PrintP2PBurstMatrix(params, topo, burstData, testSockets);
-      std::cout << "\nFinished Peer Burst Bandwidth test!" << std::endl;
+      //std::cout << "\nFinished Peer Burst Bandwidth test!" << std::endl;
    }
 
    if (params.runRangeTestP2P) {
-      std::cout << "\nRunning Peer Ranged Bandwidth test...\n" << std::endl;
+      std::cout << "\nRunning P2P Ranged Bandwidth test..." << std::endl;
 
       CalcRunSteps(blockSteps, params.rangeDeviceP2P[0], params.rangeDeviceP2P[1], params.rangeDeviceP2P[2]); 
       rangeData.resize(blockSteps.size());
@@ -331,7 +331,7 @@ void TestP2PBandwidth(BenchParams &params, SystemTopo &topo){
       std::ofstream p2pResultsFile(dataFileName.c_str());
       PrintResults(p2pResultsFile, blockSteps, rangeData, params);
       
-      std::cout << "\nRanged Peer Device Bandwidth Test Complete!" << std::endl;
+      //std::cout << "\nRanged Peer Device Bandwidth Test Complete!" << std::endl;
    }
 
    std::cout << "\nP2P Device Bandwidth Test Complete!" << std::endl;
@@ -391,7 +391,7 @@ void TestRangeP2PBandwidth(BenchParams &params, SystemTopo &topo, std::vector<lo
 }
 
 void TestBurstP2PBandwidth(BenchParams &params, SystemTopo &topo, std::vector<std::vector<float> > &burstData, bool testSockets, int &testNum) { 
-   long long blockSize = pow(2, 26); //set test size for 16 MB
+   long long blockSize = BURST_BLOCK_SIZE;
 
    double convConst = (double) blockSize / (double) pow(2.0, 30.0); 
    //(double) blockSize * (double) params.numCopiesPerStepHD * 1000 / (double) pow(2.0, 30.0);
@@ -404,15 +404,16 @@ void TestBurstP2PBandwidth(BenchParams &params, SystemTopo &topo, std::vector<st
       topo.PinSocket(socketIdx);
  
       for (int srcIdx = 0; srcIdx < topo.NumGPUs(); srcIdx++) { 
-
+         //topo.SetActiveDevice(srcIdx); 
          for (int destIdx = 0; destIdx < topo.NumGPUs(); destIdx++) { 
             // DtoD Burst Transfer - No Peer, No UVA
             burstData[srcIdx].push_back(convConst / BurstMemCopy(topo, blockSize, DEVICE_DEVICE_COPY, destIdx, srcIdx, params.numCopiesPerStepP2P)); 
-            std::cout << srcIdx << " " << destIdx << std::endl;
+            //std::cout << burstData[srcIdx][burstData[srcIdx].size() - 1] << ",";
             // DtoD Burst Transfer - Peer, No UVA
             if (topo.DeviceGroupCanP2P(srcIdx, destIdx)) {
                topo.DeviceGroupSetP2P(srcIdx, destIdx, true);
                burstData[srcIdx].push_back(convConst / BurstMemCopy(topo, blockSize, PEER_COPY_NO_UVA, destIdx, srcIdx, params.numCopiesPerStepHD)); 
+               //std::cout << burstData[srcIdx][burstData[srcIdx].size() - 1] << ",";
                topo.DeviceGroupSetP2P(srcIdx, destIdx, false);
             }
 
@@ -420,11 +421,13 @@ void TestBurstP2PBandwidth(BenchParams &params, SystemTopo &topo, std::vector<st
                // DtoD Burst Transfer - No Peer, UVA
                //topo.DeviceGroupSetP2P(srcIdx, destIdx, false);
                burstData[srcIdx].push_back(convConst / BurstMemCopy(topo, blockSize, COPY_UVA, destIdx, srcIdx, params.numCopiesPerStepHD)); 
+               //std::cout << burstData[srcIdx][burstData[srcIdx].size() - 1] << ",";
                
                // DtoD Burst Transfer - Peer, UVA
                if (topo.DeviceGroupCanP2P(srcIdx, destIdx)) {
                   topo.DeviceGroupSetP2P(srcIdx, destIdx, true);
                   burstData[srcIdx].push_back( convConst / BurstMemCopy(topo, blockSize, COPY_UVA, destIdx, srcIdx, params.numCopiesPerStepHD));        
+                  //std::cout << burstData[srcIdx][burstData[srcIdx].size() - 1] << ",";
                   topo.DeviceGroupSetP2P(srcIdx, destIdx, false);
                }
             }
@@ -434,17 +437,17 @@ void TestBurstP2PBandwidth(BenchParams &params, SystemTopo &topo, std::vector<st
 }
 
 void TestBurstHDBandwidth(BenchParams &params, SystemTopo &topo, std::vector<std::vector<float> > &burstData, bool testSockets, int &testNum) { 
-   long long blockSize = pow(2, 26); //set test size for 16 MB
-   double convConst =(double) blockSize * 1e3f / (double) pow(2.0, 30.0); //(double) blockSize * (double) params.numCopiesPerStepHD * 1000 / (double) pow(2.0, 30.0);
+   long long blockSize = BURST_BLOCK_SIZE;
+   double convConst =(double) blockSize / (double) pow(2.0, 30.0); //(double) blockSize * (double) params.numCopiesPerStepHD * 1000 / (double) pow(2.0, 30.0);
 
    int numSockets = 1;
    if (testSockets)
       numSockets = topo.NumSockets();
 
    //TODO: fix patterns
-   int numPatterns = 1;
-   if (false)
-      numPatterns = NUM_PATTERNS;
+   //int numPatterns = 1;
+   //if (false)
+   //   numPatterns = NUM_PATTERNS;
 
    burstData.resize(topo.NumNodes());
    for (int socketIdx = 0; socketIdx < numSockets; socketIdx++) {
@@ -454,6 +457,7 @@ void TestBurstHDBandwidth(BenchParams &params, SystemTopo &topo, std::vector<std
 
          //Host-Device Memory Transfers
          for (int destIdx = 0; destIdx < params.nDevices; destIdx++) {
+            topo.SetActiveDevice(destIdx); 
             // HtoD Ranged Transfer - Pageable Memory
             burstData[srcIdx].push_back( convConst / BurstMemCopy(topo, blockSize, HOST_DEVICE_COPY, destIdx, srcIdx, params.numCopiesPerStepHD));        
             
@@ -473,7 +477,7 @@ void TestBurstHDBandwidth(BenchParams &params, SystemTopo &topo, std::vector<std
 
 
 void TestBurstHHBandwidth(BenchParams &params, SystemTopo &topo, std::vector<std::vector<float> > &burstData, bool testSockets, int &testNum) { 
-   long long blockSize = pow(2, 26); //set test size for 16 MB
+   long long blockSize = BURST_BLOCK_SIZE;
 
    int numSockets = 1;
    if (testSockets)
@@ -493,7 +497,7 @@ void TestBurstHHBandwidth(BenchParams &params, SystemTopo &topo, std::vector<std
       burstData[idx].resize(matrixWidth);
    }
    
-   double convConst =(double) blockSize * 1e3f / (double) pow(2.0, 30.0); //(double) blockSize * (double) params.numCopiesPerStepHD * 1000 / (double) pow(2.0, 30.0);  
+   double convConst =(double) blockSize / (double) pow(2.0, 30.0); //(double) blockSize * (double) params.numCopiesPerStepHD * 1000 / (double) pow(2.0, 30.0);  
    for (int socketIdx = 0; socketIdx < numSockets; socketIdx++) {
       topo.PinSocket(socketIdx);
  
@@ -1032,26 +1036,19 @@ int CalcRunSteps(std::vector<long long> &blockSteps, long long startStep, long l
 void PrintP2PBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std::vector<float> > &burstData, bool testSockets) {
    long long blockSize = BURST_BLOCK_SIZE;
    int dataIdx = 0;
-   int numSockets = 1;
-   if (testSockets)
-      numSockets = topo.NumSockets();
 
-   //TODO: fix patterns
-   int numPatterns = 1;
-   if (false)
-      numPatterns = NUM_PATTERNS;
    int matrixWidth = params.nDevices;
    int matrixHeight = params.nDevices * 4;
    
-   std::cout << "\nDevice-To-Device Unidirectional Memory Transfers" << std::endl;
-   std::cout << "Transfer Block Size: " << blockSize << std::endl;
+   std::cout << "\nDevice-To-Device Unidirectional Memory Transfers:" << std::endl;
+   std::cout << "Transfer Block Size: " << blockSize / BYTES_TO_MEGA << " (MB)"<< std::endl;
 
-   std::cout << "---------------------------------"; 
+   std::cout << "-----------------------------------------"; 
    for (int i = 0; i < matrixWidth; i++)
       std::cout << "----------------";
    std::cout << std::endl;
 
-   std::cout << "|\t|-----------------------|"; 
+   std::cout << "|\t\t|-----------------------|"; 
    for (int i = 0; i < matrixWidth * 8 - 7; i++)
       std::cout << "-";
 
@@ -1060,27 +1057,28 @@ void PrintP2PBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std:
       std::cout << "-";
    std::cout << "|" << std::endl;
    
-   std::cout << "|\t| GPU   | Transfer\t";
+   std::cout << "|\t\t| GPU   | Transfer\t";
    for (int i = 0; i < matrixWidth; i++)
       std::cout << "|---------------";
    std::cout << "|" << std::endl;
 
-   std::cout << "|\t|   #   | Type\t\t|";
+   std::cout << "|\t\t|   #   | Type\t\t|";
    for (int i = 0; i < matrixWidth; i++)
       std::cout << "\t" << i << "\t|";
    std::cout << std::endl;
 
-   std::cout << "|\t|-----------------------";
+   std::cout << "|---------------|-----------------------"; 
    for (int i = 0; i < matrixWidth; i++)
-      std::cout << "----------------";
+      std::cout << "|---------------";
    std::cout << "|" << std::endl;
 
    std::vector<int> deviceIdxs;
    deviceIdxs.resize(params.nDevices, 0);
+   std::cout << std::setprecision(2) << std::fixed;          
+   
    for (int i = 0; i < matrixHeight; ++i) {
 
-      std::cout << "|\t|  " << i  / 4 <<  "\t|";
-      std::cout << std::setprecision(2) << std::fixed;          
+      std::cout << "|\t\t|  " << i  / 4 <<  "\t|";
       if (i % 4 == 0) {
          std::cout << " Standard D2D\t|";
       } else if (i % 4 == 1) {
@@ -1090,9 +1088,11 @@ void PrintP2PBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std:
       } else { 
          std::cout << " Peer, UVA\t|";
       }
-      int dataIdx = 0;
-      if (i % 4 == 0)
+      
+      if (i % 4 == 0) {
          deviceIdxs.resize(matrixWidth, 0);
+         deviceIdxs.assign(matrixWidth, 0);
+      }
       
       for (int j = 0; j < matrixWidth; ++j) {
          if (i % 4 == 0) {
@@ -1121,22 +1121,23 @@ void PrintP2PBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std:
          }
       }
       
-      std::cout << std::setprecision(5);     
       std::cout << std::endl;
       
       if (i + 1 < matrixHeight && (i + 1 == ((float) matrixHeight / 2.0))) {
-         std::cout << "| Source|-----------------------";
+         std::cout << "|   Source\t|-----------------------";
          for (int i = 0; i < matrixWidth; i++)
             std::cout << "|---------------";
          std::cout << "|" << std::endl;
       } else if (i + 1 < matrixHeight && (i + 1) % 4  ==  0) {
-         std::cout << "|\t|-----------------------";
+         std::cout << "|\t\t|-----------------------";
          for (int i = 0; i < matrixWidth; i++)
             std::cout << "|---------------";
          std::cout << "|" << std::endl;
       }
    }
-   std::cout << "---------------------------------"; 
+   std::cout << std::setprecision(4) << std::fixed;          
+   
+   std::cout << "-----------------------------------------"; 
    for (int i = 0; i < matrixWidth; i++)
       std::cout << "----------------";
    std::cout << std::endl;
@@ -1144,7 +1145,7 @@ void PrintP2PBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std:
 
 void PrintHDBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std::vector<float> > &burstData, bool testSockets) {
    long long blockSize = BURST_BLOCK_SIZE;
-
+   
    int numSockets = 1;
    if (testSockets)
       numSockets = topo.NumSockets();
@@ -1153,57 +1154,102 @@ void PrintHDBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std::
    int numPatterns = 1;
    if (false)
       numPatterns = NUM_PATTERNS;
-
-/*   std::cout << "\nHost-To-Device and Device-To-Host Unidirectional Memory Transfers" << std::endl;
-   std::cout << "Transfer Block Size: " << blockSize << std::endl;
-
-   std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
-   std::cout << "-\t\t------------------------------------------- Destination -------------------------" << std::endl;
-   std::cout << "-   Transfer \t---------------------------------------------------------------------------------" << std::endl;
-   std::cout << "-   Point\t- NUMA \t\t-";
-   for (int i = 0; i < topo.NumNodes(); i++)
-      std::cout << "\t\t" << i << "\t\t-";
-   std::cout << "" << std::endl;
+   int matrixWidth = topo.NumSockets();
+   int matrixHeight = params.nDevices;
    
-   std::cout << "-\t\t- Node \t\t-----------------------------------------------------------------" << std::endl;
-   std::cout << "-\t\t- #     Mem Type";
-   for (int i = 0; i < matrixWidth; i++){
-      if (i % 2)
-         std::cout << "-    Pinned\t";
-      else
-         std::cout << "-    Pageable\t";
-   }
-   std::cout << "-"<< std::endl;
-   std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
+   std::cout << "\nHost/Device Unidirectional Memory Transfers:" << std::endl;
+   std::cout << "Transfer Block Size: " << blockSize / BYTES_TO_MEGA << " (MB)"<< std::endl;
+   std::cout << "Num Patterns: " << numPatterns << std::endl;
 
-   for (int i = 0; i < matrixHeight; ++i) {
-      std::cout << "-\t\t-\t-";//<< std::endl;
-      for (int j = 0; j < matrixWidth + 1; ++j)
-         std::cout << "\t-\t";
-      std::cout << std::endl; 
-
-      std::cout << "-\t\t- " << i / (matrixHeight / topo.NumNodes()) <<  "\t-";
-      if (i % 2)
-         std::cout << " Pin\t-    ";
-      else
-         std::cout << " Page\t-    ";
- 
-      for (int j = 0; j < matrixWidth; ++j) {
-         std::cout << burstData[i][j] << "\t-    ";
-      }
-          
-      std::cout << "\n-\t\t-\t-";
-      for (int j = 0; j < matrixWidth + 1; ++j)
-         std::cout << "\t-\t";
+   std::cout << std::setprecision(2) << std::fixed;          
+   for (int socketIdx = 0; socketIdx < numSockets; socketIdx++) {
+      std::cout << "\nInitiating Socket: " << socketIdx << std::endl;
+    
+      std::cout << "-------------------------"; 
+      for (int i = 0; i < matrixWidth * 2; i++)
+         std::cout << "----------------";
       std::cout << std::endl;
+
+      std::cout << "|\t\t\t|"; 
+      for (int i = 0; i < matrixWidth * 16 - 6; i++)
+         std::cout << "-";
+
+      std::cout << " Host CPU ";
+      for (int i = 0; i < matrixWidth * 16 - 5; i++)
+         std::cout << "-";
+      std::cout << "|" << std::endl;
+
+      std::cout << "|\t\t\t|";
+      for (int i = 0; i < matrixWidth; i++)
+         std::cout << "\t\t" << i << "\t\t|";
+      std::cout << std::endl;
+
+      std::cout << "|\t\t\t|"; 
+      for (int i = 0; i < matrixWidth * 2; i++){
+         if (i + 1 < matrixWidth * 2)
+            std::cout << "----------------";
+         else 
+            std::cout << "---------------";
+      }
+      std::cout << "|" << std::endl;
+    
+      std::cout << "|\t\t\t";
+      for (int i = 0; i < matrixWidth; i++)
+         std::cout << "| Host-2-Device | Device-2-Host ";
+      std::cout << "|" << std::endl;
+        
+      std::cout << "|\t       Transfer\t|";
+      for (int i = 0; i < matrixWidth * 2; i++){
+         if (i + 1 < matrixWidth * 2)
+            std::cout << "----------------";
+         else 
+            std::cout << "---------------";
+      }
+      std::cout << "|" << std::endl;
+
+      std::cout << "|\t\t  Type\t";
+      for (int i = 0; i < matrixWidth * 2; i++) {
+         std::cout << "| Page\t";
+         std::cout << "|  Pin\t";
+      }
+      std::cout << "|" << std::endl;
+
+      std::cout << "|-----------------------"; 
+      for (int i = 0; i < matrixWidth * 2; i++)
+         std::cout << "----------------";
+      std::cout << "|" << std::endl;
       
-      if (i + 1 < matrixHeight && (i + 1 != ((float) matrixHeight / 2.0)))
-         std::cout << "-\t\t---------------------------------------------------------------------------------" << std::endl;
-      else if (i + 1 < matrixHeight)
-         std::cout << "-    Source     ---------------------------------------------------------------------------------" << std::endl;
+      std::cout << std::setprecision(2) << std::fixed;          
+      for (int i = 0; i < matrixHeight; ++i) {
+
+         std::cout << "|\t\t|  " << i <<  "\t|";
+         for (int j = 0; j < matrixWidth; ++j) {
+               std::cout << " " << burstData[i][j] << "\t|";
+               std::cout << " " << burstData[i][j + 2] << "\t|";
+               std::cout << " " << burstData[i][j + 1] << "\t|";
+               std::cout << " " << burstData[i][j + 3] << "\t|";
+         }
+         std::cout << std::endl;
+         
+         if (i + 1 < matrixHeight && (i + 1 == ((float) matrixHeight / 2.0))) {
+            std::cout << "|     Device\t|-------";
+            for (int i = 0; i < matrixWidth * 2; i++)
+               std::cout << "----------------";
+            std::cout << "|" << std::endl;
+         } else if (i + 1 < matrixHeight) {
+            std::cout << "|\t\t|-------";
+            for (int i = 0; i < matrixWidth * 2; i++)
+               std::cout << "----------------";
+            std::cout << "|" << std::endl;
+         }
+      }
+      std::cout << std::setprecision(4) << std::fixed;          
+
+      std::cout << "-------------------------"; 
+      for (int i = 0; i < matrixWidth * 2; i++)
+         std::cout << "----------------";
+      std::cout << std::endl;
    }
-   std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
-*/
 }
 
 void PrintHHBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std::vector<float> > &burstData, bool testSockets) {
@@ -1221,22 +1267,47 @@ void PrintHHBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std::
    int matrixWidth = HOST_MEM_TYPES * numSockets * topo.NumNodes();
    int matrixHeight = numPatterns * matrixWidth;
    
-   std::cout << "Host-Host Multi-Numa Unidirectional Memory Transfers:" << std::endl;
-   std::cout << "Transfer Block Size: " << blockSize << " (Bytes)"<< std::endl;
-   //std::cout << "Num Patterns: " << numPatterns << std::endl;
+   std::cout << "\nHost-Host Multi-NUMA Unidirectional Memory Transfers:" << std::endl;
+   std::cout << "Transfer Block Size: " << blockSize / BYTES_TO_MEGA << " (MB)"<< std::endl;
+   std::cout << "Num Patterns: " << numPatterns << std::endl;
 
+   std::cout << std::setprecision(2) << std::fixed;          
    for (int socketIdx = 0; socketIdx < numSockets; socketIdx++) {
-      std::cout << "\nInitiating Sockets: " << socketIdx << std::endl;
+      std::cout << "\nInitiating Socket: " << socketIdx << std::endl;
+      
+      std::cout << "---------------------------------"; 
+      for (int i = 0; i < matrixWidth; i++)
+         std::cout << "----------------";
+      std::cout << std::endl;
 
-      std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
-      std::cout << "|\t\t|---------------|-------------------------- Destination ------------------------|" << std::endl;
-      std::cout << "|   Transfer \t|---------------|---------------------------------------------------------------|" << std::endl;
+      std::cout << "|\t\t|----------------"; 
+      for (int i = 0; i < matrixWidth * 8 - 7; i++)
+         std::cout << "-";
+
+      std::cout << " Destination ";
+      for (int i = 0; i < matrixWidth * 8 - 7; i++)
+         std::cout << "-";
+      std::cout << "|" << std::endl;
+
+      std::cout << "|   Transfer \t|---------------";// << std::endl;
+      for (int i = 0; i < matrixWidth; i++)
+         std::cout << "----------------";
+      std::cout << "|" << std::endl;
+
       std::cout << "|   Point\t| NUMA \t\t|";
       for (int i = 0; i < topo.NumNodes(); i++)
          std::cout << "\t\t" << i << "\t\t|";
       std::cout << "" << std::endl;
       
-      std::cout << "|\t\t| Node \t\t|---------------------------------------------------------------|" << std::endl;
+      std::cout << "|\t\t| Node \t\t|";
+      for (int i = 0; i < matrixWidth; i++) {
+         if (i + 1 < matrixWidth)
+            std::cout << "----------------";
+         else 
+            std::cout << "---------------";
+      }
+      std::cout << "|" << std::endl;
+ 
       std::cout << "|\t\t| #     Mem Type";
       for (int i = 0; i < matrixWidth; i++){
          if (i % 2)
@@ -1245,8 +1316,12 @@ void PrintHHBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std::
             std::cout << "|    Pageable\t";
       }
       std::cout << "|"<< std::endl;
-      std::cout << "|---------------|-------|-------|---------------------------------------------------------------|" << std::endl;
-
+ 
+      std::cout << "|-------------------------------"; 
+      for (int i = 0; i < matrixWidth; i++)
+         std::cout << "----------------";
+      std::cout << "|" << std::endl;
+     
       for (int i = 0; i < matrixHeight; ++i) {
          std::cout << "|\t\t|\t|";//<< std::endl;
          for (int j = 0; j < matrixWidth + 1; ++j)
@@ -1268,13 +1343,33 @@ void PrintHHBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std::
             std::cout << "\t|\t";
          std::cout << std::endl;
          
-         if (i + 1 < matrixHeight && (i + 1 != ((float) matrixHeight / 2.0)))
-            std::cout << "|\t\t|-------|-----------------------------------------------------------------------|" << std::endl;
-         else if (i + 1 < matrixHeight)
-            std::cout << "|    Source     |-------|-----------------------------------------------------------------------|" << std::endl;
+         if (i + 1 < matrixHeight && (i + 1 != ((float) matrixHeight / 2.0))) {
+            std::cout << "|\t\t|-------|-------|";
+            for (int i = 0; i < matrixWidth; i++) {
+               if (i + 1 < matrixWidth)
+                  std::cout << "----------------";
+               else 
+                  std::cout << "---------------";
+            }
+            std::cout << "|" << std::endl; 
+         } else if (i + 1 < matrixHeight) {
+            std::cout << "|    Source     |-------|-------|";
+            for (int i = 0; i < matrixWidth; i++) {
+               if (i + 1 < matrixWidth)
+                  std::cout << "----------------";
+               else 
+                  std::cout << "---------------";
+            }
+            std::cout << "|" << std::endl; 
+         }
       }
-      std::cout << "-------------------------------------------------------------------------------------------------" << std::endl;
+
+      std::cout << "---------------------------------"; 
+      for (int i = 0; i < matrixWidth; i++)
+         std::cout << "----------------";
+      std::cout << std::endl;
    }
+   std::cout << std::setprecision(2) << std::fixed;          
 }
 
 void PrintResults(std::ofstream &outFile, std::vector<long long> &steps, std::vector<std::vector<float> > &results, BenchParams &params) {
