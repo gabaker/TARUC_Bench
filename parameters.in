@@ -1,36 +1,37 @@
 ----- Benchmark Parameters ------
-resultsFile=results
-printDevProps=true
-devPropFile=device_info.out
-topoFile=topology.in
+Results File Name=results
+Output Device Props=true
 ------------ All Tests ----------
-runAllDevices=false
-usePinnedMem=true
+Use All GPUs=true
+Use Pinned Mem=true
+Run Burst Tests=false
+Run Range Tests=true
+Run Sustained Tests=true
+Run Socket Effect Tests=true
+# Repeated Steps=5
+Burst Block Size(MB)=64
 -------- Memory Overhead --------
-runMemOverheadTest=true
-numStepRepeatsOH=10
-range min=10
-range max=150000
-range step=10
+Run Memory Overhead Test=true
+Range Min=10
+Range Max=1500000000
+Range Step=10
+----- Host-Host Bandwidth -----
+Run Host-Host Tests=false
+Vary Access Patterns=true
+Range Min=10
+Range Max=50000000
+Range Step=20
 ----- Host-Device Bandwidth -----
-runHDBandwidthTest=true
-runRangeTestHD=true
-runBurstHD=true
-runSustainedHD=true
-runAllPatternsHD=false
-numCopiesPerStepHD=10
-range min=10
-range max=150000
-range step=10
+Run Host-Device Tests=false
+Vary Access Patterns=true
+Range Min=10
+Range Max=50000000
+Range Step=20
 --------- P2P Bandwidth ---------
-runP2PBandwidthTest=true
-runRangeTestP2P=true
-runBurstP2P=true
-runSustainedP2P=true
-numCopiesPerStepP2P=10
-range min=10
-range max=150000
-range step=10
+runP2PBandwidthTest=false
+Range Min=10
+Range Max=150000000
+Range Step=10
 ---------------------------------
 runPCIeCongestionTest=false
 ---------------------------------

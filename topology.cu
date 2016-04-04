@@ -121,7 +121,23 @@ void SystemTopo::SetActiveDevice(int devIdx) {
 
 void SystemTopo::FreeMem(void *addr, long long numBytes) {
    hwloc_free(topology, addr, numBytes);
-}    
+}  
+
+  
+std::string SystemTopo::GetDeviceName(int devIdx) {
+
+   return std::string(devProps[devIdx].name);
+}
+
+int SystemTopo::NumPeerGroups() {
+
+   return PeerGroupCount;
+}     
+
+std::vector<std::vector<int> > SystemTopo::GetPeerGroups() {
+
+   return PeerGroups;
+}
  
 void SystemTopo::PrintTopology(std::ofstream &OutFile) {
    int s_depth = hwloc_get_type_depth(topology, HWLOC_OBJ_SOCKET);
@@ -215,6 +231,29 @@ void SystemTopo::ParseTopology() {
 
    checkCudaErrors(cudaGetDeviceCount(&NumDevices));
    GetAllDeviceProps();
+
+   PeerGroupCount = 0;
+   std::vector<bool> inGroup(NumDevices, false);
+
+   if (NumDevices > 0) {
+      for (int i = 0; i < NumDevices; i++) {
+         if (inGroup[i])
+            continue;
+         
+         std::vector<int> group;
+         group.push_back(i);
+         inGroup[i] = true;
+
+         for (int j = i + 1; j < NumDevices; j++) {
+            if (DeviceGroupCanP2P(i,j)) {
+               group.push_back(j);
+               inGroup[j] = true;
+            }
+         }
+         PeerGroups.push_back(group);
+      } 
+   }
+   PeerGroupCount = PeerGroups.size();
 }
 
 // Prints the device properties out to file based named depending on the 

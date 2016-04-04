@@ -6,8 +6,8 @@ import math
 
 colors = list("brygcm")
 
-if (len(sys.argv) < 3):
-   print "Usage: python plot_bandwidth.py results_file.csv topo_file.out [parameter_file.out]"
+if (len(sys.argv) < 4):
+   print "Usage: python plot_bandwidth.py results_file.csv topo_file.out parameter_file.out"
    sys.exit() 
 
 if (os.path.isfile(sys.argv[2]) == False):
@@ -94,7 +94,7 @@ if (usePinnedMem == True):
 numCols = (numDevices + numMemTypes + numNumaNodes + (numMemTypes - 2 + 1)) * numNumaNodes * numPatterns 
 
 if ((runRangedTest and runBandwidthTest) == False):
-   print "\nParameters stated no ranged Bandwidth test...exiting\n"
+   print "\nParameters stated no ranged Bandwidth test...exiting graph script.\n"
    sys.exit()
 
 # read each column into the correct location, in order
@@ -143,7 +143,7 @@ def clear_plot_range( begin, end):
 #CASE 7: Device to Host, Pinned host memory
 
 #change range end to numSockets when all cpus are being tested
-for socket in range(0, 1):
+'''for socket in range(0, 1):
    for srcNode in range(0, numNumaNodes):
       for destNode in range(0, numNumaNodes):
          label = "Src Node:" + str(srcNode) + "Dest:" + str(srcNode)
@@ -184,4 +184,4 @@ save_figure("alloc" + str(0), "", "alloc_all_numa_cpu_dev")
 save_figure("free" + str(0), "", "free_all_numa_cpu_dev")
 
 plt.show()
-
+'''

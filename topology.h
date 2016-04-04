@@ -40,7 +40,10 @@ class SystemTopo
       // Device Utility Functions
       void SetActiveDevice(int devIdx);
       void ResetDevices(); 
- 
+      std::string GetDeviceName(int devIdx);
+      int NumPeerGroups();      
+      std::vector<std::vector<int> > GetPeerGroups();
+
       //return class local variables
       int NumNodes();
       int NumSockets();
@@ -54,9 +57,13 @@ class SystemTopo
       ~SystemTopo();
 
    private: 
-      // HWLOC topology object + device info struct array
+      // HWLOC topology object
       hwloc_topology_t topology;
+
+      //Device Info
       cudaDeviceProp *devProps;
+      std::vector<std::vector<int> > PeerGroups;
+      int PeerGroupCount;
 
       // Depths of obj types
       int TopoDepth;
