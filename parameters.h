@@ -14,14 +14,14 @@ class BenchParams {
       std::string inputFile;
       bool useDefaultParams;
       
-      std::string resultsFile;
+      std::string runTag;
       bool printDevProps;
       std::string devPropFile;
       std::string topoFile;
 
       // All Tests (parameter file)
       bool runAllDevices;
-      bool usePinnedMem;
+      bool testAllMemTypes;
       bool runBurstTests;
       bool runRangeTests; 
       bool runSustainedTests;
@@ -37,24 +37,28 @@ class BenchParams {
       long long rangeMemOverhead[3]; //min, max and step size (in bytes)
 
       // Host-Host memory bandwidth test
-      bool runHHBandwidthTest;
+      bool runBandwidthTestHH;
       bool runPatternsHH;
       long long rangeHostHostBW[3]; //min, max and step size (in bytes)
       
       // Host-Device PCIe Baseline bandwidth test
-      bool runHDBandwidthTest;
+      bool runBandwidthTestHD;
       bool runPatternsHD;
       long long rangeHostDeviceBW[3]; //min, max and step size (in bytes)
 
       // Peer-to-peer device memory transfer bandwidth
-      bool runP2PBandwidthTest; 
+      bool runBandwidthTestP2P; 
       long long rangeDeviceBW[3]; //min, max and step size (in bytes)
 
-      // PCIe Congestion tests
-      bool runPCIeCongestionTest;
+      // Resource Congestion tests
+      bool runCongestionTest;
+      long long rangeCong[3];
+      long long numCongRepeats;
+      long numCongMemTypes;
+      bool testCongRange;
 
-      // CUDA kernel task scalability and load balancing
-      bool runTaskScalabilityTest;
+      //Resource Usage Tests (TODO)
+      bool runUsageTest;
 
       void ParseParamFile(std::string fileStr);
       void SetDefault();
@@ -63,8 +67,10 @@ class BenchParams {
       ~BenchParams() {};
       
    private:
-      void GetNextLine(std::ifstream &inFile, std::string &lineStr);
-      bool GetNextLineBool(std::ifstream &inFile, std::string &lineStr);
+      bool GetNextBool(std::ifstream &inFile);
+      long long GetNextInteger(std::ifstream &inFile);
+      std::string GetNextString(std::ifstream &inFile);
+      std::string GetNextLine(std::ifstream &inFile);
 
 } ;
 

@@ -18,13 +18,13 @@ numNodes = int(testParams[1])
 numDevices = int(testParams[2])
 
 numHostMemTypes = 1
-usePinnedMem = False
+testAllMemTypes = False
 if (testParams[3] == "t"):
-   usePinnedMem = True
-   numHostMemTypes = 2
+   testAllMemTypes = True
+   numHostMemTypes = 3
 
-memAllocTypes = ["malloc","cudaMallocHost", "cudaMalloc"]
-memFreeTypes = ["free","cudaFreeHost", "cudaFree"]
+memAllocTypes = ["Page Host","Pinned Host", "Write-Combined", "Device"]
+memFreeTypes = ["Page Free","Pinned Free", "Write-Combined Free", "Device Free"]
 
 devices = []
 for idx in range(0, numDevices):
@@ -34,7 +34,7 @@ print "\nPlotting memory overhead results from file " + sys.argv[1] + " given pa
 print "Socket Count: " + str(numSockets)
 print "Node Count: " + str(numNodes)
 print "Num Devices: " + str(numDevices)
-print "Use Pinned Memory: " + str(usePinnedMem)
+print "Test All Mem Types: " + str(testAllMemTypes)
 print "Devices: " + str(devices)
 
 # read each column into the correct location, in order
@@ -50,9 +50,9 @@ for idx in range(1, numCols):
       freeData.append(np.genfromtxt (str(sys.argv[1]), delimiter=",", usecols=(idx), skip_header=(1)))
 
 ymax = max(np.amax(allocData), np.amax(freeData))
-ymax = math.pow(10, math.log10(ymax)) * 10
-ymin = 0.0001
-xmin = 0
+ymax = math.pow(10, math.log10(ymax)) * 2
+ymin = 0.100
+xmin = 0.0
 xmax = int(blkSize[-1] * 2)
 #function for saving specific plot to file
 def save_figure( figureNum, title, saveName ):
@@ -88,7 +88,7 @@ def add_scatter(x, y, color, mark, tag, label):
 for cpu in range(0, numSockets):
    for node in range(0, numNodes):
       for hostType in range(0, numHostMemTypes):
-         idx = cpu * (numNodes * numHostMemTypes + numDevices) + node * numHostMemTypes + hostType
+         idx = cpu * (numNodes * numHostMemTypes + numDevices) + (node * numHostMemTypes) + hostType
          yAlloc = allocData[idx] 
          yFree = freeData[idx] 
 
@@ -134,14 +134,14 @@ for cpu in range(0, numSockets):
 
       # CASE 4
       for dev in range(0, numDevices):
-         idx = cpu * (numNodes * numHostMemTypes + numDevices) + numNodes * numHostMemTypes + dev
+         idx = cpu * (numNodes * numHostMemTypes + numDevices) + (numNodes * numHostMemTypes) + dev
          yAlloc = allocData[idx] 
          yFree = freeData[idx] 
 
          allocLabel = "alloc_cpu" + str(cpu) + "_numa" + str(node) + "_all_mem_dev"
          freeLabel = "free_cpu" + str(cpu) + "_numa" + str(node) + "_all_mem_dev"
-         allocTag = memAllocTypes[2] + " " + devices[dev]
-         freeTag = memFreeTypes[2]+ " " + devices[dev]
+         allocTag = memAllocTypes[3] + " " + devices[dev]
+         freeTag = memFreeTypes[3]+ " " + devices[dev]
          add_scatter(blkSize, yAlloc, colors[dev], marker[dev + 1], allocTag, allocLabel)
          add_scatter(blkSize, yFree, colors[dev], marker[dev + 1], freeTag, freeLabel) 
 
@@ -152,15 +152,15 @@ for cpu in range(0, numSockets):
       save_figure( freeLabel, freeLabel, freeLabel) 
    
    for dev in range(0, numDevices):
-      idx = cpu * (numNodes * numHostMemTypes + numDevices) + numNodes * numHostMemTypes + dev
+      idx = cpu * (numNodes * numHostMemTypes + numDevices) + (numNodes * numHostMemTypes) + dev
       yAlloc = allocData[idx] 
       yFree = freeData[idx] 
 
       # CASE 2
       allocLabel = "alloc_cpu" + str(cpu) + "_all_numa_mem_dev"
       freeLabel = "free_cpu" + str(cpu) + "_all_numa_mem_dev"
-      allocTag = memAllocTypes[2] + " " + devices[dev]
-      freeTag = memFreeTypes[2] + " " + devices[dev]
+      allocTag = memAllocTypes[3] + " " + devices[dev]
+      freeTag = memFreeTypes[3] + " " + devices[dev]
       add_scatter(blkSize, yAlloc, colors[numHostMemTypes * numNodes + dev], marker[dev], allocTag, allocLabel)  
       add_scatter(blkSize, yFree, colors[numHostMemTypes * numNodes + dev], marker[dev], freeTag, freeLabel)     
       
@@ -192,25 +192,25 @@ for cpu in range(0, numSockets):
 
 for cpu in range(0, numSockets):
    for dev in range(0, numDevices):
-      idx = cpu * (numNodes * numHostMemTypes + numDevices) + numNodes * numHostMemTypes + dev
+      idx = cpu * (numNodes * numHostMemTypes + numDevices) + (numNodes * numHostMemTypes) + dev
       yAlloc = allocData[idx] 
       yFree = freeData[idx] 
      
       # CASE 0
       allocLabel = "alloc_all_cpu_numa_mem_dev"
       freeLabel = "free_all_cpu_numa_mem_dev"
-      allocTag = memAllocTypes[2] + " CPU " + str(cpu) + " " + devices[dev]
-      freeTag = memFreeTypes[2] + " CPU " + str(cpu) + " " + devices[dev]
+      allocTag = memAllocTypes[3] + " CPU " + str(cpu) + " " + devices[dev]
+      freeTag = memFreeTypes[3] + " CPU " + str(cpu) + " " + devices[dev]
       add_scatter(blkSize, yAlloc, colors[numNodes * numSockets + dev], marker[cpu], allocTag, allocLabel)
       add_scatter(blkSize, yFree, colors[numNodes * numSockets + dev], marker[cpu], freeTag, freeLabel)     
 
       # CASE 5
       allocLabel = "alloc_all_cpu_dev_only"
       freeLabel = "free_all_cpu_dev_only"
-      allocTag = memAllocTypes[2] + " CPU " + str(cpu) + " " + devices[dev]
-      freeTag = memFreeTypes[2] + " CPU " + str(cpu) + " " + devices[dev]
-      add_scatter(blkSize, yAlloc, colors[cpu * numSockets + dev], marker[cpu], allocTag, allocLabel)     
-      add_scatter(blkSize, yFree, colors[cpu * numSockets + dev], marker[cpu], freeTag, freeLabel)     
+      allocTag = memAllocTypes[3] + " CPU " + str(cpu) + " " + devices[dev]
+      freeTag = memFreeTypes[3] + " CPU " + str(cpu) + " " + devices[dev]
+      add_scatter(blkSize, yAlloc, colors[cpu * numSockets + dev], marker[cpu], allocTag, allocLabel)
+      add_scatter(blkSize, yFree, colors[cpu * numSockets + dev], marker[cpu], freeTag, freeLabel) 
 
 # CASE 5
 allocLabel = "alloc_all_cpu_dev_only"
@@ -235,7 +235,7 @@ save_figure( freeLabel, freeLabel, freeLabel)
 for node in range(0, numNodes):
    for hostType in range(0, numHostMemTypes):
       for cpu in range(0, numSockets):
-         idx = cpu * (numNodes * numHostMemTypes + numDevices) + node * numHostMemTypes + hostType
+         idx = cpu * (numNodes * numHostMemTypes + numDevices) + (node * numHostMemTypes) + hostType
          yAlloc = allocData[idx] 
          yFree = freeData[idx] 
     
@@ -257,7 +257,7 @@ for node in range(0, numNodes):
 
    for cpu in range(0, numSockets):
       for dev in range(0, numDevices):
-         idx = cpu * (numNodes * numHostMemTypes + numDevices) + numNodes * numHostMemTypes + dev
+         idx = cpu * (numNodes * numHostMemTypes + numDevices) + (numNodes * numHostMemTypes) + dev
          yAlloc = allocData[idx] 
          yFree = freeData[idx] 
    

@@ -1,39 +1,39 @@
------ Benchmark Parameters ------
-Results File Name=results
-Output Device Props=true
------------- All Tests ----------
-Use All GPUs=true
-Use Pinned Mem=true
-Run Burst Tests=false
-Run Range Tests=true
-Run Sustained Tests=true
-Run Socket Effect Tests=true
-# Repeated Steps=5
-Burst Block Size(MB)=64
--------- Memory Overhead --------
-Run Memory Overhead Test=true
-Range Min=10
-Range Max=1500000000
-Range Step=10
------ Host-Host Bandwidth -----
-Run Host-Host Tests=false
+------- Benchmark Parameters --------
+Run Tag = anatta
+Print Device Props = true
+------------- All Tests -------------
+Use All GPUs = true
+Test All Mem Types = true
+Run Burst Tests = false
+Run Range Tests = true
+Run Sustained Tests = true
+Run Socket Effect Tests = true
+# Repeated Steps = 10
+Burst Block Size (bytes) = 64000000
+---------- Memory Overhead ----------
+Run Memory Overhead Test = false
+Range Min = 10
+Range Max = 1500000000
+Range Step = 10
+--------- Host-Host Bandwidth -------
+Run Host-Host Tests = false
+Vary Access Patterns = true
+Range Min = 10
+Range Max = 1500000000
+Range Step = 10
+------- Host-Device Bandwidth -------
+Run Host-Device Tests = false
 Vary Access Patterns=true
-Range Min=10
-Range Max=50000000
-Range Step=20
------ Host-Device Bandwidth -----
-Run Host-Device Tests=false
-Vary Access Patterns=true
-Range Min=10
-Range Max=50000000
-Range Step=20
---------- P2P Bandwidth ---------
-runP2PBandwidthTest=false
-Range Min=10
-Range Max=150000000
-Range Step=10
----------------------------------
-runPCIeCongestionTest=false
----------------------------------
-runTaskScalabilityTest=false
----------------------------------
+Range Min = 10
+Range Max = 1500000
+Range Step = 10
+----------- P2P Bandwidth -----------
+Run P2P Tests = false
+Range Min = 10
+Range Max =1500000
+Range Step = 10
+-------- Resource Congestion --------
+Run Congestion Test = true
+---------- Resource Usage -----------
+Run Resource Usage Test = false
+-------------------------------------

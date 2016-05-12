@@ -1,8 +1,192 @@
-
-//#ifndef TOPOLOGY_CLASS_INC
-//#define TOPOLOGY_CLASS_INC
 #include "topology.h"
-//#endif
+
+// --------------------------- Memory Allocation Functions -----------------------------
+
+
+void * SystemTopo::AllocMemByCore(int coreIdx, long long numBytes) {
+   hwloc_obj_t core = hwloc_get_obj_by_depth(topology, CoreDepth, coreIdx);
+
+   return hwloc_alloc_membind_policy_nodeset(topology, numBytes, core->nodeset, HWLOC_MEMBIND_BIND, HWLOC_MEMBIND_NOCPUBIND | HWLOC_MEMBIND_STRICT);
+}
+
+void * SystemTopo::AllocMemByNode(int nodeIdx, long long numBytes) {
+   hwloc_obj_t node = hwloc_get_obj_by_depth(topology, NodeDepth, nodeIdx);
+
+   return hwloc_alloc_membind_policy_nodeset(topology, numBytes, node->nodeset, HWLOC_MEMBIND_BIND, HWLOC_MEMBIND_NOCPUBIND | HWLOC_MEMBIND_STRICT);
+}
+
+void * SystemTopo::AllocMemBySocket(int socketIdx, long long numBytes) {
+   hwloc_obj_t socket = hwloc_get_obj_by_depth(topology, SocketDepth, socketIdx);
+
+   return hwloc_alloc_membind_policy_nodeset(topology, numBytes, socket->nodeset, HWLOC_MEMBIND_BIND, HWLOC_MEMBIND_NOCPUBIND | HWLOC_MEMBIND_STRICT);
+}
+
+void * SystemTopo::AllocPinMemByNode(int nodeIdx, long long numBytes) {
+    hwloc_obj_t node = hwloc_get_obj_by_depth(topology, NodeDepth, nodeIdx);
+
+   void *addr = hwloc_alloc_membind_policy_nodeset(topology, numBytes, node->nodeset, HWLOC_MEMBIND_BIND, HWLOC_MEMBIND_NOCPUBIND | HWLOC_MEMBIND_STRICT);
+
+   // Pin memory after allocation; hwloc has no interface for 
+   // allocating pinned memory directly
+   checkCudaErrors(cudaHostRegister(addr, numBytes, cudaHostRegisterPortable));
+
+   return addr;
+}
+
+void * SystemTopo::AllocWCMemByNode(int nodeIdx, long long numBytes) {
+   // Get the initial topology binding to make prevent changes in 
+   // binding from user perspective; must bind allocator since 
+   // write-combined memory cannot be allocated directly from hwloc
+   hwloc_nodeset_t initNodeSet = hwloc_bitmap_alloc();
+   hwloc_membind_policy_t policy;
+   hwloc_get_membind_nodeset(topology, initNodeSet, &policy, HWLOC_MEMBIND_THREAD);
+
+   // Bind to node requested in nodeIdx
+   hwloc_obj_t node = hwloc_get_obj_by_depth(topology, NodeDepth, nodeIdx);
+   hwloc_nodeset_t nodeSet = node->nodeset;
+   hwloc_set_membind_nodeset(topology, nodeSet, HWLOC_MEMBIND_BIND, HWLOC_MEMBIND_NOCPUBIND | HWLOC_MEMBIND_THREAD | HWLOC_MEMBIND_STRICT);
+   
+   // CUDA call to alloc portable pinned write combined memory
+   void *blkAddr;
+   checkCudaErrors(cudaHostAlloc(&blkAddr, numBytes, cudaHostAllocWriteCombined | cudaHostAllocPortable)); 
+
+   // Reset memory binding to initial state
+   hwloc_set_membind_nodeset(topology, initNodeSet, HWLOC_MEMBIND_BIND, HWLOC_MEMBIND_NOCPUBIND | HWLOC_MEMBIND_THREAD | HWLOC_MEMBIND_STRICT);
+
+   return blkAddr;
+}
+
+void * SystemTopo::AllocManagedMemByNode(int nodeIdx, int devIdx, long long numBytes) {
+   // Get the initial topology binding to make prevent changes in 
+   // binding from user perspective; must bind allocator since 
+   // write-combined memory cannot be allocated directly from hwloc
+   hwloc_nodeset_t initNodeSet = hwloc_bitmap_alloc();
+   hwloc_membind_policy_t policy;
+   hwloc_get_membind_nodeset(topology, initNodeSet, &policy, HWLOC_MEMBIND_THREAD);
+
+   // Bind to node requested in nodeIdx
+   hwloc_obj_t node = hwloc_get_obj_by_depth(topology, NodeDepth, nodeIdx);
+   hwloc_nodeset_t nodeSet = node->nodeset;
+   hwloc_set_membind_nodeset(topology, nodeSet, HWLOC_MEMBIND_BIND, HWLOC_MEMBIND_NOCPUBIND | HWLOC_MEMBIND_THREAD | HWLOC_MEMBIND_STRICT);
+   
+   // CUDA call to alloc portable pinned write combined memory
+   // Again save initial device state to prevent unintended behavior to caller
+   void *blkAddr;
+   int initDevIdx;
+   checkCudaErrors(cudaGetDevice(&initDevIdx));
+   checkCudaErrors(cudaSetDevice(devIdx));
+   // Check CUDA flags on given device
+   // cudaGetDeviceFlags();
+   // cudaSetDeviceFlags();
+   // This flag is implicit on init, so not nessesary except for more complicated situations (TODO)
+   checkCudaErrors(cudaMallocManaged(&blkAddr, numBytes, cudaMemAttachGlobal));
+   checkCudaErrors(cudaSetDevice(initDevIdx));
+
+   // Reset memory binding to initial state
+   hwloc_set_membind_nodeset(topology, initNodeSet, HWLOC_MEMBIND_BIND, HWLOC_MEMBIND_NOCPUBIND | HWLOC_MEMBIND_THREAD | HWLOC_MEMBIND_STRICT);
+
+   return blkAddr;  
+
+}
+
+void * SystemTopo::AllocMappedMemByNode(int nodeIdx, int devIdx, long long numBytes) {
+   // Get the initial topology binding to make prevent changes in 
+   // binding from user perspective; must bind allocator since 
+   // write-combined memory cannot be allocated directly from hwloc
+   hwloc_nodeset_t initNodeSet = hwloc_bitmap_alloc();
+   hwloc_membind_policy_t policy;
+   hwloc_get_membind_nodeset(topology, initNodeSet, &policy, HWLOC_MEMBIND_THREAD);
+
+   // Bind to node requested in nodeIdx
+   hwloc_obj_t node = hwloc_get_obj_by_depth(topology, NodeDepth, nodeIdx);
+   hwloc_nodeset_t nodeSet = node->nodeset;
+   hwloc_set_membind_nodeset(topology, nodeSet, HWLOC_MEMBIND_BIND, HWLOC_MEMBIND_NOCPUBIND | HWLOC_MEMBIND_THREAD | HWLOC_MEMBIND_STRICT);
+   
+   // CUDA call to alloc portable pinned write combined memory
+   // Again save initial device state to prevent unintended behavior to caller
+   void *blkAddr;
+   int initDevIdx;
+   checkCudaErrors(cudaGetDevice(&initDevIdx));
+   checkCudaErrors(cudaSetDevice(devIdx));
+   checkCudaErrors(cudaHostAlloc(&blkAddr, numBytes, cudaHostAllocPortable | cudaHostAllocMapped));
+   checkCudaErrors(cudaSetDevice(initDevIdx));
+
+   // Reset memory binding to initial state
+   hwloc_set_membind_nodeset(topology, initNodeSet, HWLOC_MEMBIND_BIND, HWLOC_MEMBIND_NOCPUBIND | HWLOC_MEMBIND_THREAD | HWLOC_MEMBIND_STRICT);
+
+   return blkAddr;  
+}
+
+void * SystemTopo::AllocDeviceMem(int devIdx, long long numBytes) {
+   int currDevice = 0;
+   void * addr;
+
+   checkCudaErrors(cudaGetDevice(&currDevice));
+
+   checkCudaErrors(cudaSetDevice(devIdx));
+   checkCudaErrors(cudaMalloc(&addr, numBytes));
+
+   checkCudaErrors(cudaSetDevice(currDevice));
+
+   return addr;
+}
+
+// ----------------------- Memory Deallocation Functions --------------------------------
+
+void SystemTopo::FreeHostMem(void *addr, long long numBytes) {
+   hwloc_free(topology, addr, numBytes);
+}  
+
+void SystemTopo::FreeWCMem(void *addr) {
+   checkCudaErrors(cudaFreeHost(addr));
+}
+ 
+void SystemTopo::FreePinMem(void *addr, long long numBytes) {
+   checkCudaErrors(cudaHostUnregister((void*) addr));
+   hwloc_free(topology, addr, numBytes);
+}
+
+void SystemTopo::FreeMappedMem(void *addr) {
+   checkCudaErrors(cudaFreeHost(addr));
+}
+
+void SystemTopo::FreeManagedMem(void *addr) {
+   checkCudaErrors(cudaFree(addr));
+}
+
+void SystemTopo::FreeDeviceMem(void *addr, int deviceIdx) {
+    int currDevice = 0;
+
+   checkCudaErrors(cudaGetDevice(&currDevice));
+
+   checkCudaErrors(cudaSetDevice(deviceIdx));
+   checkCudaErrors(cudaFree(addr));
+
+   checkCudaErrors(cudaSetDevice(currDevice));
+}
+
+// -------------------------- Other Memory Utility Functions ---------------------------
+
+void SystemTopo::PinHostMemory(void *addr, long long numBytes) {
+   checkCudaErrors(cudaHostRegister(addr, numBytes, cudaHostRegisterPortable));
+}
+
+void SystemTopo::SetDeviceMem(void *addr, int value, long long numBytes, int deviceIdx) {
+    int currDevice = 0;
+
+   checkCudaErrors(cudaGetDevice(&currDevice));
+
+   checkCudaErrors(cudaSetDevice(deviceIdx));
+   checkCudaErrors(cudaMemset(addr, value, numBytes));
+
+   checkCudaErrors(cudaSetDevice(currDevice));
+}
+
+void SystemTopo::SetHostMem(void *addr, int value, long long numBytes) {
+   memset(addr, value, numBytes);
+}
+
+// ------------------- UVA and P2P Utility Functions ---------------------------------
 
 bool SystemTopo::DeviceUVA(int deviceIdx) {
    return (devProps[deviceIdx].unifiedAddressing ? true : false);
@@ -43,6 +227,8 @@ void SystemTopo::DeviceGroupSetP2P(int deviceA, int deviceB, bool status) {
    checkCudaErrors(cudaSetDevice(currDevice));
 }
 
+// ---------------------------- NUMA and CPUSET Pinning Functions ----------------------
+
 void SystemTopo::PinNumaNode(int nodeIdx) {
    hwloc_obj_t node = hwloc_get_obj_by_depth(topology, NodeDepth, nodeIdx); 
 
@@ -52,92 +238,58 @@ void SystemTopo::PinNumaNode(int nodeIdx) {
 
 }
 
-
 void SystemTopo::PinSocket(int socketIdx) {
    hwloc_obj_t socket = hwloc_get_obj_by_depth(topology, SocketDepth, socketIdx);
    
    hwloc_set_cpubind(topology, socket->cpuset, HWLOC_CPUBIND_THREAD | HWLOC_CPUBIND_NOMEMBIND | HWLOC_CPUBIND_STRICT);
 }
 
-void SystemTopo::PinCoreBySocket(int coreIdx, int socketIdx) {
-   
-   /*hwloc_obj_t core = hwloc_get_obj_by_depth(topology, CoreDepth, socketIdx);
-   hwloc_set_cpubind(topology, socket->cpuset, HWLOC_CPUBIND_THREAD | HWLOC_CPUBIND_NOMEMBIND | HWLOC_CPUBIND_STRICT);
-*/
+void SystemTopo::PinCore(int coreIdx) {
+   hwloc_obj_t core = hwloc_get_obj_by_depth(topology, CoreDepth, coreIdx);
+
+   hwloc_set_cpubind(topology, core->cpuset, HWLOC_CPUBIND_THREAD | HWLOC_CPUBIND_NOMEMBIND | HWLOC_CPUBIND_STRICT);
 }
 
-void * SystemTopo::AllocMemByNode(int nodeIdx, long long numBytes) {
-   hwloc_obj_t node = hwloc_get_obj_by_depth(topology, NodeDepth, nodeIdx);
+void SystemTopo::PinPU(int puIdx) {
+   hwloc_obj_t pu = hwloc_get_obj_by_depth(topology, PUDepth, puIdx);
 
-   return hwloc_alloc_membind_policy_nodeset(topology, numBytes, node->nodeset, HWLOC_MEMBIND_BIND, HWLOC_MEMBIND_NOCPUBIND | HWLOC_MEMBIND_STRICT);
+   hwloc_set_cpubind(topology, pu->cpuset, HWLOC_CPUBIND_THREAD | HWLOC_CPUBIND_NOMEMBIND | HWLOC_CPUBIND_STRICT);
 }
 
-void * SystemTopo::AllocMemBySocket(int socketIdx, long long numBytes) {
+void SystemTopo::PinPUBySocket(int socketIdx, int puIdx) {
    hwloc_obj_t socket = hwloc_get_obj_by_depth(topology, SocketDepth, socketIdx);
+   hwloc_obj_t pu = hwloc_get_obj_inside_cpuset_by_depth(topology, socket->cpuset, CoreDepth, puIdx);
+   
+   hwloc_set_cpubind(topology, pu->cpuset, HWLOC_CPUBIND_THREAD | HWLOC_CPUBIND_NOMEMBIND | HWLOC_CPUBIND_STRICT);
 
-   return hwloc_alloc_membind_policy_nodeset(topology, numBytes, socket->nodeset, HWLOC_MEMBIND_BIND, HWLOC_MEMBIND_NOCPUBIND | HWLOC_MEMBIND_STRICT);
 }
 
-void SystemTopo::AllocDeviceMem(void ** addr, long long numBytes, int deviceIdx) {
-   int currDevice = 0;
-
-   checkCudaErrors(cudaGetDevice(&currDevice));
-
-   checkCudaErrors(cudaSetDevice(deviceIdx));
-   checkCudaErrors(cudaMalloc(addr, numBytes));
-
-   checkCudaErrors(cudaSetDevice(currDevice));
+void SystemTopo::PinCoreBySocket(int socketIdx, int coreIdx) {
+   hwloc_obj_t socket = hwloc_get_obj_by_depth(topology, SocketDepth, socketIdx);
+   hwloc_obj_t core = hwloc_get_obj_inside_cpuset_by_depth(topology, socket->cpuset, CoreDepth, coreIdx);
+   
+   hwloc_set_cpubind(topology, core->cpuset, HWLOC_CPUBIND_THREAD | HWLOC_CPUBIND_NOMEMBIND | HWLOC_CPUBIND_STRICT);
 }
 
-void SystemTopo::SetDeviceMem(void *addr, int value, long long numBytes, int deviceIdx) {
-    int currDevice = 0;
 
-   checkCudaErrors(cudaGetDevice(&currDevice));
-
-   checkCudaErrors(cudaSetDevice(deviceIdx));
-   checkCudaErrors(cudaMemset(addr, value, numBytes));
-
-   checkCudaErrors(cudaSetDevice(currDevice));
-}
-
-void SystemTopo::SetHostMem(void *addr, int value, long long numBytes) {
-   memset(addr, value, numBytes);
-}
-
-void SystemTopo::FreeDeviceMem(void *addr, int deviceIdx) {
-    int currDevice = 0;
-
-   checkCudaErrors(cudaGetDevice(&currDevice));
-
-   checkCudaErrors(cudaSetDevice(deviceIdx));
-   checkCudaErrors(cudaFree(addr));
-
-   checkCudaErrors(cudaSetDevice(currDevice));
-}
+// --------------------------- Device Utility Functions -------------------------------
 
 void SystemTopo::SetActiveDevice(int devIdx) {
    checkCudaErrors(cudaSetDevice(devIdx));
 }
-
-void SystemTopo::FreeMem(void *addr, long long numBytes) {
-   hwloc_free(topology, addr, numBytes);
-}  
-
-  
+ 
 std::string SystemTopo::GetDeviceName(int devIdx) {
-
    return std::string(devProps[devIdx].name);
 }
 
-int SystemTopo::NumPeerGroups() {
-
-   return PeerGroupCount;
-}     
-
 std::vector<std::vector<int> > SystemTopo::GetPeerGroups() {
-
    return PeerGroups;
 }
+// ------------------------------- System Topology Info ----------------------------
+
+int SystemTopo::NumPeerGroups() {
+   return PeerGroupCount;
+}     
  
 void SystemTopo::PrintTopology(std::ofstream &OutFile) {
    int s_depth = hwloc_get_type_depth(topology, HWLOC_OBJ_SOCKET);
@@ -270,9 +422,9 @@ void SystemTopo::PrintDeviceProps(BenchParams &params) {
 
    int driverVersion = 0, runtimeVersion = 0;
    for (int i = 0; i < NumDevices; i++) {
-      cudaSetDevice(i);
-      cudaDriverGetVersion(&driverVersion);
-      cudaDriverGetVersion(&runtimeVersion);
+      checkCudaErrors(cudaSetDevice(i));
+      checkCudaErrors(cudaDriverGetVersion(&driverVersion));
+      checkCudaErrors(cudaDriverGetVersion(&runtimeVersion));
 
       devicePropsSS << "Device " << i << ":\t\t\t\t" <<props[i].name << std::endl;
       devicePropsSS << "CUDA Capability:\t\t\t" << props[i].major << "." << props[i].minor << std::endl;
@@ -312,8 +464,6 @@ void SystemTopo::PrintDeviceProps(BenchParams &params) {
    
    devicePropsFile.close();
 }
-
-
 
 //SystemTopo Constructor, initializes hwloc topology
 SystemTopo::SystemTopo() {
@@ -361,6 +511,10 @@ int SystemTopo::NumCoresPerSocket() {
 
 int SystemTopo::NumPUsPerCore() {
    return PUsPerCore;
+}
+
+int SystemTopo::NumPUsPerSocket() {
+   return PUsPerCore * CoresPerSocket;
 }
 
 int SystemTopo::NumGPUs() {

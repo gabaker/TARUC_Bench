@@ -34,7 +34,7 @@ startSocket = 0
 usePinnedMem = False
 if (testParams[3] == "t"):
    usePinnedMem = True
-   numMems = 2
+   numMems = 3
 
 useSockets = False
 if (testParams[4] == "t"):

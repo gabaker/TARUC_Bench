@@ -5,7 +5,6 @@
 #include "nvml.h"
 
 // C/C++ standard includes
-#include<memory>
 #include<iostream>
 #include<stdio.h>
 #include<string>
@@ -33,7 +32,7 @@
 
 // NUMA Locality includes
 #include<hwloc.h>
-#include<numa.h>
+//#include<numa.h>
 #include<sched.h>
 
 // Time conversions for varying timing functions that are compatible 
@@ -43,9 +42,7 @@
 #define NANO_TO_MILLI ((double) 1.0 / (double) 1e6f)
 #define NANO_TO_MICRO ((double) 1.0 / (double) 1e3f)
 #define NUM_PATTERNS 3
-#define MAX_PATTERN_SIZE pow(2,20)
-//#define BURST_BLOCK_SIZE pow(2.0, 26.0)
-#define HOST_MEM_TYPES 2
+#define HOST_MEM_TYPES 3
 #define BYTES_TO_MEGA ((double) pow(2.0, 20))
 
 // Memory access patterns to test help adjust small PCI transfer latency for possible Host 
@@ -62,26 +59,49 @@ typedef enum {
    P2P
 } BW_RANGED_TYPE;
 
+typedef enum {
+   PAGE,
+   PINNED,
+   WRITE_COMBINED,
+   MANAGED,
+   MAPPED,
+   DEVICE
+} MEM_TYPE;
+
 
 // Memory allocation types to be used in benchmark suppost functions to adjust behavior of 
 // test run depending on benchmark parameters and cases being studied
 typedef enum {
-   DEVICE_MALLOC,             // Device memory allocation, single memory block
    HOST_MALLOC,               // Host pageable memory allocation, single memory block
    HOST_PINNED_MALLOC,        // Host pinned memory allocation, single memory block
-   DEVICE_FREE,               // Device memory deallocation, single memory block
+   HOST_COMBINED_MALLOC,
+   MANAGED_MALLOC,
+   MAPPED_MALLOC,
+   DEVICE_MALLOC,             // Device memory allocation, single memory block
+
    HOST_FREE,                 // Host pageable memory deallocation, single memory block
    HOST_PINNED_FREE,          // Host pinned memory deallocation, single memory block
+   HOST_COMBINED_FREE,
+   MANAGED_FREE,
+   MAPPED_FREE,
+   DEVICE_FREE,               // Device memory deallocation, single memory block
 
    HOST_HOST_COPY,            // Host-To-Host Copy, pageable memory
+   DEVICE_HOST_COPY,          // Device-To-Host copy, pageable host memory
+   HOST_DEVICE_COPY,          // Host-To-Device copy, pageable host memory
+   
    HOST_PINNED_HOST_COPY,     // Host-To-Host Copy, src pinned, dest pageable
    HOST_HOST_PINNED_COPY,     // Host-To-Host Copy, dest pinned, src pageable
    HOST_HOST_COPY_PINNED,     // Host-To-Host Copy, both src/dest pinned memory
-
-   HOST_DEVICE_COPY,          // Host-To-Device copy, pageable host memory
    HOST_PINNED_DEVICE_COPY,   // Host-To-Device copy, pinned host memory
-   DEVICE_HOST_COPY,          // Device-To-Host copy, pageable host memory
    DEVICE_HOST_PINNED_COPY,   // Device-To-Host copy, pinned host memory
+
+   HOST_COMBINED_HOST_COPY,
+   HOST_HOST_COMBINED_COPY,
+   HOST_HOST_COPY_COMBINED,
+   HOST_COMBINED_DEVICE_COPY,
+   DEVICE_HOST_COMBINED_COPY,
+
    DEVICE_DEVICE_COPY,        // Device-To-Device copy, no peer support
    PEER_COPY_NO_UVA,          // Peer-to-Peer device copy, no uva support
    COPY_UVA                   // General UVA copy, CUDA runtime copy based on pointer addressing

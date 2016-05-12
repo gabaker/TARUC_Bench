@@ -10,28 +10,39 @@
 class SystemTopo
 {
    public:
-      void GetTopology(hwloc_topology_t &dupTopology);
-
-      // Print system hardware properties and topology
-      void PrintTopology(std::ofstream &OutFile);
-      void PrintDeviceProps(BenchParams &params);
 
       //Topology pinning - numa and cpuset
       void PinNumaNode(int nodeIdx);
       void PinSocket(int socketIdx);
-      void PinCoreBySocket(int coreIdx, int socketIdx);
-      //void PinPUBySocket(int socketIdx, int puIdx);
-      //void PinPURange(int FirstPU, int LastPU);
-      //void PinNumaNodeByPU(int puIdx); 
- 
-      //Memory management by cpu/nodes/devices
+      void PinCore(int coreIdx);
+      void PinPU(int puIdx);
+      void PinPUBySocket(int socketIdx, int puIdx);
+      void PinCoreBySocket(int socketIdx, int coreIdx);
+
+      // Memory Allocation Functions 
+      void * AllocMemByCore(int coreIdx, long long numBytes);
       void * AllocMemByNode(int nodeIdx, long long numBytes);
       void * AllocMemBySocket(int socketIdx, long long numBytes);
-      void AllocDeviceMem(void **addr, long long numBytes, int deviceIdx);
+      void * AllocPinMemByNode(int nodeIdx, long long numBytes);
+      void * AllocWCMemByNode(int nodeIdx, long long numBytes);
+      void * AllocManagedMemByNode(int nodeIdx, int devIdx, long long numBytes);
+      void * AllocMappedMemByNode(int nodeIdx, int devIdx, long long numBytes);
+      void * AllocDeviceMem(int devIdx, long long numBytes);
+      
+      // Memory Deallocation Functions
+      void FreeHostMem(void *addr, long long numBytes);     
+      void FreePinMem(void *addr, long long numBytes);
+      void FreeWCMem(void *addr);
+      void FreeMappedMem(void *addr);
+      void FreeManagedMem(void *addr);
+      void FreeDeviceMem(void *addr, int deviceIdx);
+
+      // Other Memory Utility Functions 
       void SetHostMem(void *addr, int value, long long numBytes);
       void SetDeviceMem(void *addr, int value, long long numBytes, int deviceIdx);
-      void FreeMem(void *addr, long long numBytes);     
-      void FreeDeviceMem(void *addr, int deviceIdx);
+      void PinHostMemory(void *addr, long long numBytes);
+
+      // Device UVA and P2P Functions
       bool DeviceUVA(int deviceIdx);  
       bool DeviceGroupUVA(int deviceA, int deviceB); 
       bool DeviceGroupCanP2P(int deviceA, int deviceB);
@@ -40,18 +51,23 @@ class SystemTopo
       // Device Utility Functions
       void SetActiveDevice(int devIdx);
       void ResetDevices(); 
-      std::string GetDeviceName(int devIdx);
       int NumPeerGroups();      
       std::vector<std::vector<int> > GetPeerGroups();
+      std::string GetDeviceName(int devIdx);
 
-      //return class local variables
+      // System Topology Info and Utility
       int NumNodes();
       int NumSockets();
       int NumCores();
       int NumPUs();  
       int NumCoresPerSocket();
       int NumPUsPerCore();
+      int NumPUsPerSocket();
       int NumGPUs();
+      void GetTopology(hwloc_topology_t &dupTopology);
+      
+      void PrintTopology(std::ofstream &OutFile);
+      void PrintDeviceProps(BenchParams &params);
 
       SystemTopo();
       ~SystemTopo();

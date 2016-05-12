@@ -27,10 +27,10 @@ numSockets = int(testParams[0])
 numNodes = int(testParams[1])
 
 usePinnedMem = False
-numMemGroups = 1
+numMemTypes = 1
 if (testParams[2] == "t"):
    usePinnedMem = True
-   numMemGroups = 2 * 2
+   numMemTypes = 6
 
 startSocket = 0
 useSockets = False
@@ -40,7 +40,7 @@ else:
    startSocket = numSockets
    numSockets = 1
 
-memTypeNames={"Pageable","Pinned"}
+memTypeNames={"Pageable","Pinned","Write-Combined"}
 patternNames=[]
 numPatterns = len(testParams) - 4
 for idx in range(0, numPatterns):
@@ -104,7 +104,7 @@ def save_figure(figTag, title, saveName):
 for socket in range(startSocket, startSocket + numSockets):
    for srcNode in range(0, numNodes):
       for destNode in range(0, numNodes):
-         y_idx =  socket * numSockets * numNodes * numMemGroups * numPatterns + srcNode * numNodes * numMemGroups * numPatterns + destNode * numMemGroups * numPatterns
+         y_idx =  socket * numSockets * numNodes * numMemTypes * numPatterns + srcNode * numNodes * numMemTypes * numPatterns + destNode * numMemTypes * numPatterns
          
          #CASE 0: Each socket, all mem combinations, each src/dest pair, one pattern
          label = "cpu" + str(socket) + "_src" + str(srcNode) + "_dest" + str(destNode) + "_all_mem_types"
@@ -198,7 +198,7 @@ if (numSockets > 1):
    for srcNode in range(0, numNodes):
       for destNode in range(0, numNodes):
          for socket in range(startSocket, startSocket + numSockets):
-            y_idx =  socket * numSockets * numNodes * numMemGroups * numPatterns + srcNode * numNodes * numMemGroups * numPatterns + destNode * numMemGroups * numPatterns
+            y_idx =  socket * numSockets * numNodes * numMemTypes * numPatterns + srcNode * numNodes * numMemTypes * numPatterns + destNode * numMemTypes * numPatterns
             label = "all_cpu" + "_src" + str(srcNode) + "_dest" + str(destNode)
             #CASE 3: All sockets, both pageable, one pattern and one src/dest pair
             plt.figure(label + "_both_page")
@@ -218,7 +218,7 @@ if (numSockets > 1):
                plt.scatter(blkSize, data[y_idx + 3 * numPatterns], c = colors[socket], label = "CPU " + str(socket) + " Src: " + str(srcNode) + "Dest: " + str(destNode)) 
 
             for pattern in range(0, numPatterns):
-               y_idx =  socket * numSockets * numNodes * numMemGroups * numPatterns + srcNode * numNodes * numMemGroups * numPatterns + destNode * numMemGroups * numPatterns + pattern
+               y_idx =  socket * numSockets * numNodes * numMemTypes * numPatterns + srcNode * numNodes * numMemTypes * numPatterns + destNode * numMemTypes * numPatterns + pattern
                #CASE 4: All sockets, all patterns, each src/dest pair, both pageable
                label = "all_cpu" + "_src" + str(srcNode) + "_dest" + str(destNode) + "_all_patterns"
                plt.figure(label + "_both_page")
@@ -260,7 +260,7 @@ if (numSockets > 1):
    for socket in range(startSocket, startSocket + numSockets):
       for srcNode in range(0, numNodes):
          for destNode in range(0, numNodes):
-            y_idx =  socket * numSockets * numNodes * numMemGroups * numPatterns + srcNode * numNodes * numMemGroups * numPatterns + destNode * numMemGroups * numPatterns
+            y_idx =  socket * numSockets * numNodes * numMemTypes * numPatterns + srcNode * numNodes * numMemTypes * numPatterns + destNode * numMemTypes * numPatterns
             
             #CASE 5: All sockets, both pageable, all src/dest pairs, repeated pattern
             plt.figure(label + "_both_page")
