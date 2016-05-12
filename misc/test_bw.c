@@ -25,27 +25,26 @@ int main(void) {
    //a = (double *) malloc(sizeof(double) * N);
    //b = (double *) malloc(sizeof(double) * N);
    //c = (double *) malloc(sizeof(double) * N);
-   for (register long long j = 0; j < N; ++j) {
-      a[j] = 2.0E0;
-      b[j] = 2.0E0;
-      c[j] = 1.0E0;
-   }
-
    mlock(a, N*sizeof(double));
    mlock(b, N*sizeof(double));
    mlock(c, N*sizeof(double));
    
    for (k = 0; k < numRepeats; ++k) {
+      #pragma omp parallel for
+      for (register long long j = 0; j < N; ++j) {
+         a[j] = 2.0E0;
+         b[j] = 2.0E0;
+         c[j] = 1.0E0;
+      }
+
       struct timezone tz;
       struct timeval stop_t, start_t, total_t;
       
       gettimeofday(&start_t, &tz);
 
-
       #pragma omp parallel for
       for (register long long j = 0; j < N; ++j)
          c[j] = a[j];
-      
 
       gettimeofday(&stop_t, &tz);
       timersub(&stop_t, &start_t, &total_t); 
@@ -88,11 +87,11 @@ int main(void) {
          gettimeofday(&start_t, &tz);
 
          #pragma omp parallel for
-         /*for (register long long j = 0; j < L; ++j)
-            *(a_ptr + j) = 1.0;
-         */
+         for (register long long j = 0; j < L; ++j)
+            *(a_ptr + j) = *(c_ptr + j);
+         /*
          for (register double *j = a; j < (a + N); ++j)
-            *j = 1.0;
+            *j = 1.0;*/
 
          gettimeofday(&stop_t, &tz);
          timersub(&stop_t, &start_t, &total_t); 

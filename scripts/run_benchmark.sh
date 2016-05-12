@@ -35,15 +35,14 @@ fi
 
 #compile benchmark
 echo -e "\n\e[34m\e[1mCompiling benchmark and tools...\e[0m"
-make all
+make
 echo -e "\e[34m\e[1mCompilation complete\e[0m\n"
 
 #map system topology
 echo -e "\e[34m\e[1mMapping system topology...\e[0m ${PWD}/results/\e[1m\e[31m$topo_file\e[0m\n"
-${PWD}/scripts/map_topology.sh "./results/$topo_file"
-cat ./results/$topo_file
+#${PWD}/scripts/map_topology.sh "./results/$topo_file"
+#cat ./results/$topo_file
 lstopo -v
-
 
 #check for user benchmark parameter file
 if [[ $1 != '' ]]
@@ -61,7 +60,8 @@ sleep 2
 
 #plot data and save graphs
 echo -e "\e[34m\e[1mRunning plotting scripts:\e[0m \e[1m\e[31m$plot_script\e[0m\n"
-
 ./${PWD}/scripts/plot_data.py
+
+
 
 
