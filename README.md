@@ -5,12 +5,6 @@ CUDA PCIe Bandwidth, Memory and Multi-GPU Benchmarks that accounts for multi soc
             gabaker@calpoly.edu
             gavin.m.baker@gmail.com
 
-##Acknowledgements: 
-
-####Craig Ulmer (Sandia)
-####Jerry Friesen (Sandia)
-####Chris Lupo (Cal Poly)
-
 ##Explaination of Goals:
 
 1. Goal 1
