@@ -22,16 +22,26 @@ fi
 
 if [ ! -d "${PWD}/results/bandwidth" ]; then
    mkdir "${PWD}/results/bandwidth"
+   mkdir "${PWD}/results/bandwidth/hh"
+   mkdir "${PWD}/results/bandwidth/hd"
+   mkdir "${PWD}/results/bandwidth/p2p"
+fi
+
+if [ ! -d "${PWD}/results/bandwidth/hh" ]; then
+   mkdir "${PWD}/results/bandwidth/hh"
+fi
+
+if [ ! -d "${PWD}/results/bandwidth/hd" ]; then
+   mkdir "${PWD}/results/bandwidth/hd"
+fi
+
+if [ ! -d "${PWD}/results/bandwidth/p2p" ]; then
+   mkdir "${PWD}/results/bandwidth/p2p"
 fi
 
 if [ ! -d "${PWD}/results/contention" ]; then
-   mkdir "${PWD}/results/congestion"
+   mkdir "${PWD}/results/contention"
 fi
-
-if [ ! -d "${PWD}/results/usage" ]; then
-   mkdir "${PWD}/results/usage"
-fi
-
 
 #compile benchmark
 echo -e "\n\e[34m\e[1mCompiling benchmark and tools...\e[0m"
@@ -60,8 +70,6 @@ sleep 2
 
 #plot data and save graphs
 echo -e "\e[34m\e[1mRunning plotting scripts:\e[0m \e[1m\e[31m$plot_script\e[0m\n"
-./${PWD}/scripts/plot_data.py
-
-
+${PWD}/scripts/plot_data.sh
 
 

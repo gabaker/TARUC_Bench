@@ -27,6 +27,7 @@ class BenchParams {
       bool runSustainedTests;
       bool runSocketTests;
       long numStepRepeats;
+      long numRangeSteps;
       long long burstBlockSize;
  
       int nDevices;
@@ -34,31 +35,28 @@ class BenchParams {
 
       // Overhead memory test for allocation and deallocation of Host and Device memory
       bool runMemoryOverheadTest;
-      long long rangeMemOverhead[3]; //min, max and step size (in bytes)
+      long long rangeMemOverhead[2]; //min, max range block size (in bytes)
 
       // Host-Host memory bandwidth test
       bool runBandwidthTestHH;
       bool runPatternsHH;
-      long long rangeHostHostBW[3]; //min, max and step size (in bytes)
+      long long rangeHostHostBW[2]; //min, max range block size (in bytes)
       
       // Host-Device PCIe Baseline bandwidth test
       bool runBandwidthTestHD;
       bool runPatternsHD;
-      long long rangeHostDeviceBW[3]; //min, max and step size (in bytes)
+      long long rangeHostDeviceBW[2]; //min, max range block size(in bytes)
 
       // Peer-to-peer device memory transfer bandwidth
       bool runBandwidthTestP2P; 
-      long long rangeDeviceBW[3]; //min, max and step size (in bytes)
+      long long rangeDeviceBW[2]; //min, max range block size(in bytes)
 
       // Resource Congestion tests
-      bool runCongestionTest;
-      long long rangeCong[3];
-      long long numCongRepeats;
-      long numCongMemTypes;
-      bool testCongRange;
-
-      //Resource Usage Tests (TODO)
-      bool runUsageTest;
+      bool runContentionTest;
+      long long rangeCont[2];
+      long long numContRepeats;
+      int numContMemTypes;
+      bool testContRange;
 
       void ParseParamFile(std::string fileStr);
       void SetDefault();

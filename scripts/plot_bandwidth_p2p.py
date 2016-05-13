@@ -24,12 +24,13 @@ results = open(sys.argv[1])
 testParams = results.readline().strip().split(",");
 
 numSockets = int(testParams[0])
-numDevices = int(testParams[2])
-numGroups = int(testParams[1])
-numTransTypes = 4
+numDevices = int(testParams[1])
+numGroups = int(testParams[2])
+numTransTypes = 2
+#numTransTypes = 4
 
 useSockets = False
-if (testParams[4] == "t"):
+if (testParams[3] == "t"):
    useSockets = True
 else:
    startSocket = numSockets

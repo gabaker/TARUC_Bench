@@ -59,7 +59,7 @@ fi
 echo -e "\n\e[34m\e[1mPlotting Resource Contention Micro-benchmark Data...\e[0m"
 if [[ $(find ./ -name "*_contention.csv") ]]
 then
-   python2 $script_dir/plot_bandwidth.py $(find ./ -name "*_ranged_p2p_tt.csv") 
+   python2 $script_dir/plot_contention.py $(find ./ -name "*_ranged_p2p_tt.csv") 
 fi 
 
 

@@ -9,7 +9,7 @@ void Timer::StartTimer() {
       gettimeofday(&start_t, NULL);
       #endif
    } else {
-      checkCudaErrors(cudaEventRecord(start_e, stream));
+      checkCudaErrors(cudaEventRecord(start_e, stream)); //stream
    }
 }
 
@@ -21,7 +21,7 @@ void Timer::StopTimer() {
       gettimeofday(&stop_t, NULL);
       #endif 
    } else {
-      checkCudaErrors(cudaEventRecord(stop_e, stream));   
+      checkCudaErrors(cudaEventRecord(stop_e, stream));   ///stream
    }
 }
 
@@ -31,13 +31,15 @@ float Timer::ElapsedTime() {
 
    if (UseHostTimer) {
       #ifdef USING_CPP
-      auto total_c = std::chrono::duration_cast<std::chrono::microseconds>(stop_c - start_c);
-      time = (float) total_c.count(); 
+      auto total_c = std::chrono::duration_cast<std::chrono::nanoseconds>(stop_c - start_c);
+      time = (float) total_c.count() * 1.0e-3; 
       #else
       timersub(&stop_t, &start_t, &total_t); 
       time = (float) total_t.tv_usec + (float) total_t.tv_sec * 1.0e6;
       #endif 
    } else {      
+      //checkCudaErrors(cudaEventSynchronize(stop_e)); 
+      //checkCudaErrors(cudaStreamSynchronize(stream)); 
       checkCudaErrors(cudaEventSynchronize(stop_e)); 
       checkCudaErrors(cudaEventElapsedTime(&time, start_e, stop_e)); 
       time *= 1.0e3;  
@@ -46,18 +48,20 @@ float Timer::ElapsedTime() {
    return time;
 }
 
-//TODO check if cuda events are reusable; if so delete member function
-void Timer::ResetTimer() {
-   if (!UseHostTimer) {
+void Timer::SetHostTiming(bool HostTimer) {
+
+   if (!HostTimer && UseHostTimer) {
+      checkCudaErrors(cudaStreamCreate(&stream));             
+      checkCudaErrors(cudaEventCreate(&start_e));
+      checkCudaErrors(cudaEventCreate(&stop_e)); 
+   } else if (HostTimer && !UseHostTimer) {
       checkCudaErrors(cudaStreamDestroy(stream));
       checkCudaErrors(cudaEventDestroy(start_e));
-      checkCudaErrors(cudaEventDestroy(stop_e));
+      checkCudaErrors(cudaEventDestroy(stop_e));   
+   }
 
-      checkCudaErrors(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));             
-      checkCudaErrors(cudaEventCreate(&start_e));
-      checkCudaErrors(cudaEventCreate(&stop_e));        
-   } 
-}
+   UseHostTimer = HostTimer;
+}      
 
 Timer::~Timer() {
    if (!UseHostTimer) {
@@ -67,9 +71,11 @@ Timer::~Timer() {
    } 
 }
 
-Timer::Timer(bool UseHostTimer = true) : UseHostTimer(UseHostTimer) {
+Timer::Timer(bool HostTimer) {
+   UseHostTimer = HostTimer;
    if (!UseHostTimer) {
-      checkCudaErrors(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));             
+      checkCudaErrors(cudaStreamCreate(&stream));             
+      //checkCudaErrors(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));             
       checkCudaErrors(cudaEventCreate(&start_e));
       checkCudaErrors(cudaEventCreate(&stop_e)); 
    } 

@@ -57,49 +57,50 @@ void BenchParams::ParseParamFile(std::string fileStr) {
    useDefaultParams = false;
 
    // Benchmark Parameters 
-   runTag  = GetNextString(inFile); //runTag
+   runTag  = GetNextString(inFile);                // runTag
    devPropFile = runTag + "_device_info.out";
    topoFile = runTag + "_topology.out";
-   printDevProps = GetNextBool(inFile); //printDeviceProps
+   printDevProps = GetNextBool(inFile);            // printDeviceProps
    
    // All Tests
-   runAllDevices = GetNextBool(inFile); //runAllDevices 
-   testAllMemTypes = GetNextBool(inFile); //testAllMemTypes 
-   runBurstTests = GetNextBool(inFile); //runBurstTests 
-   runRangeTests = GetNextBool(inFile); //runRangeTests
-   runSustainedTests = GetNextBool(inFile); //runSustainedTests
-   runSocketTests = GetNextBool(inFile); //runSocketTests
-   numStepRepeats = (long) GetNextInteger(inFile); //numStepRepeats
-   burstBlockSize = GetNextInteger(inFile); //burstBlockSize
+   runAllDevices = GetNextBool(inFile);            // runAllDevices 
+   testAllMemTypes = GetNextBool(inFile);          // testAllMemTypes 
+   runBurstTests = GetNextBool(inFile);            // runBurstTests 
+   runRangeTests = GetNextBool(inFile);            // runRangeTests
+   runSustainedTests = GetNextBool(inFile);        // runSustainedTests
+   runSocketTests = GetNextBool(inFile);           // runSocketTests
+   numStepRepeats = (long) GetNextInteger(inFile); // numStepRepeats
+   numRangeSteps = (long) GetNextInteger(inFile);  // numRangeSteps
+   burstBlockSize = GetNextInteger(inFile);        // burstBlockSize
  
    // Memory Overhead Test
-   runMemoryOverheadTest = GetNextBool(inFile); //runMemoryOverheadTest
-   for (int i = 0; i < 3; i++) //rangeMemOverhead
+   runMemoryOverheadTest = GetNextBool(inFile);    // runMemoryOverheadTest
+   for (int i = 0; i < 2; i++)                     // rangeMemOverhead
       rangeMemOverhead[i] = GetNextInteger(inFile); 
 
    // Host-Host Bandwidth Test
-   runBandwidthTestHH = GetNextBool(inFile); //runHHBandwidthTest
-   runPatternsHH = GetNextBool(inFile); //runPatternsHH
-   for (int i = 0; i < 3; i++) //rangeHostHostBW
+   runBandwidthTestHH = GetNextBool(inFile);    // runHHBandwidthTest
+   runPatternsHH = GetNextBool(inFile);         // runPatternsHH
+   for (int i = 0; i < 2; i++)                  // rangeHostHostBW
       rangeHostHostBW[i] = GetNextInteger(inFile); 
 
    // Host-Device Bandwidth Test
-   runBandwidthTestHD = GetNextBool(inFile); //runHDBandwidthTest
-   runPatternsHD = GetNextBool(inFile); //runPatternsHD
-   for (int i = 0; i < 3; i++)  //rangeHostDeviceBW
+   runBandwidthTestHD = GetNextBool(inFile);    // runHDBandwidthTest
+   runPatternsHD = GetNextBool(inFile);         // runPatternsHD
+   for (int i = 0; i < 2; i++)                  // rangeHostDeviceBW
       rangeHostDeviceBW[i] = GetNextInteger(inFile); 
 
    // P2P Bandwidth Test
-   runBandwidthTestP2P = GetNextBool(inFile); //runP2PBandwidthTest
-   for (int i = 0; i < 3; i++) //rangeDeviceP2P
+   runBandwidthTestP2P = GetNextBool(inFile);   // runP2PBandwidthTest
+   for (int i = 0; i < 2; i++)                  // rangeDeviceP2P
       rangeDeviceBW[i] = GetNextInteger(inFile);
    
-   // Memory System Congestion Test 
-   runCongestionTest = GetNextBool(inFile); //runCongestionTest
-   
-   // Task Scalability
-   runUsageTest = GetNextBool(inFile); //runMemUsageTest
-  
+   // Memory System Contention Test 
+   runContentionTest = GetNextBool(inFile);     // runContentionTest
+   testContRange = GetNextBool(inFile);         // testContRange
+   numContRepeats = GetNextInteger(inFile);     // numContRepeats
+   for (int i = 0; i < 2; i++)                  // rangeCont
+      rangeCont[i] = GetNextInteger(inFile);
 }
 
 // Set default device properties based on an interesting variety of tests 
@@ -122,34 +123,34 @@ void BenchParams::SetDefault() {
    runRangeTests = true; 
    runSustainedTests = true;
    runSocketTests = true;
-   numStepRepeats = 5;
-   burstBlockSize = pow(2,26);
+   numStepRepeats = 20;
+   numRangeSteps = 1;
+   burstBlockSize = 100000000;
    runMemoryOverheadTest = true; 
    
-   rangeMemOverhead[0] = 10;
-   rangeMemOverhead[1] = pow(2,26);
-   rangeMemOverhead[2] = 10;
+   rangeMemOverhead[0] = 100;
+   rangeMemOverhead[1] = 1500000000;
 
    runBandwidthTestHH = true;
-   rangeHostDeviceBW[0] = 10;
-   rangeHostDeviceBW[1] = pow(2,26);
-   rangeHostDeviceBW[2] = 10; 
-   runPatternsHH = false;
+   runPatternsHH = true;
+   rangeHostDeviceBW[0] = 100;
+   rangeHostDeviceBW[1] = 1500000000;
    
    runBandwidthTestHD = true;
-   rangeHostDeviceBW[0] = 10;
-   rangeHostDeviceBW[1] = pow(2,26);
-   rangeHostDeviceBW[2] = 10; 
-   runPatternsHD = false;
+   runPatternsHD = true;
+   rangeHostDeviceBW[0] = 100;
+   rangeHostDeviceBW[1] = 1500000000;
 
    runBandwidthTestP2P = true;
-   rangeDeviceBW[0] = 10;
-   rangeDeviceBW[1] = pow(2,26);
-   rangeDeviceBW[2] = 10;
+   rangeDeviceBW[0] = 100;             // 100B min block size
+   rangeDeviceBW[1] = 1500000000;      // 1500MB max block size 
    
-   runCongestionTest = false;
+   runContentionTest = false;
+   testContRange = true;
+   numContRepeats = 50;
+   rangeCont[0] = 100000;       // 100KB min block size
+   rangeCont[1] = 100000000;    // 100MB max block size (default for no range)
    
-   runUsageTest = false;
 }
 
 void BenchParams::PrintParams() {
@@ -169,51 +170,48 @@ void BenchParams::PrintParams() {
    outParamStr << "-----------------------------------------------------------------" << std::endl; 
    outParamStr << "Use all Devices:\t\t" << runAllDevices << std::endl;
    outParamStr << "Device Count:\t\t\t" << nDevices << std::endl;
-   outParamStr << "Test All Host Mem Types:\t\t" << testAllMemTypes << std::endl;
+   outParamStr << "Test All Host Mem Types:\t" << testAllMemTypes << std::endl;
    outParamStr << "Burst Tests:\t\t\t" << runBurstTests << std::endl;
    outParamStr << "Burst Block Size:\t\t" << burstBlockSize << std::endl;
    outParamStr << "Ranged Tests:\t\t\t" << runRangeTests << std::endl;
    outParamStr << "Sustained Tests:\t\t" << runSustainedTests << std::endl;
    outParamStr << "Test All Sockets:\t\t" << runSocketTests << std::endl;
    outParamStr << "Number Repeated Steps:\t\t" << numStepRepeats << std::endl;
+   outParamStr << "Number Steps Per Magnitude:\t" << numRangeSteps << std::endl;
    outParamStr << "-----------------------------------------------------------------" << std::endl; 
    outParamStr << "----------------------- Memory Overhead Test --------------------" << std::endl; 
    outParamStr << "-----------------------------------------------------------------" << std::endl; 
    outParamStr << "Run Test:\t\t\t" << runMemoryOverheadTest << std::endl;
    outParamStr << "Allocation Range: \t\t";
-   outParamStr << rangeMemOverhead[0] << "," << rangeMemOverhead[1];
-   outParamStr << "," << rangeMemOverhead[2] << " (min,max,step)" << std::endl;
+   outParamStr << rangeMemOverhead[0] << "," << rangeMemOverhead[1] << " (min,max)" << std::endl;
    outParamStr << "-----------------------------------------------------------------" << std::endl; 
    outParamStr << "-------------------- Host-Host Bandwidth Test -----------------" << std::endl; 
    outParamStr << "-----------------------------------------------------------------" << std::endl; 
    outParamStr << "Run Test:\t\t\t" << runBandwidthTestHH << std::endl;
    outParamStr << "Run All Memory Patterns :\t" << runPatternsHH << std::endl;
    outParamStr << "Allocation Range:\t\t"; 
-   outParamStr << rangeHostHostBW[0] << "," << rangeHostHostBW[1] << ","; 
-   outParamStr << rangeHostHostBW[2] << " (min,max,step)" << std::endl;
+   outParamStr << rangeHostHostBW[0] << "," << rangeHostHostBW[1] << " (min,max)" << std::endl;
    outParamStr << "-----------------------------------------------------------------" << std::endl; 
    outParamStr << "-------------------- Host-Device Bandwidth Test -----------------" << std::endl; 
    outParamStr << "-----------------------------------------------------------------" << std::endl; 
    outParamStr << "Run Test:\t\t\t" << runBandwidthTestHD << std::endl;
    outParamStr << "Run All Memory Patterns :\t" << runPatternsHD << std::endl;
    outParamStr << "Allocation Range:\t\t"; 
-   outParamStr << rangeHostDeviceBW[0] << "," << rangeHostDeviceBW[1] << ","; 
-   outParamStr << rangeHostDeviceBW[2] << " (min,max,step)" << std::endl;
+   outParamStr << rangeHostDeviceBW[0] << "," << rangeHostDeviceBW[1] << " (min,max)" << std::endl;
    outParamStr << "-----------------------------------------------------------------" << std::endl; 
    outParamStr << "----------------------- P2P Bandwidth Test ----------------------" << std::endl; 
    outParamStr << "-----------------------------------------------------------------" << std::endl; 
    outParamStr << "Run Test:\t\t\t" << runBandwidthTestP2P << std::endl;
    outParamStr << "Allocation Range:\t\t";
-   outParamStr << rangeDeviceBW[0] << "," << rangeDeviceBW[1] << ",";
-   outParamStr << rangeDeviceBW[2] << " (min,max,step)" << std::endl;
+   outParamStr << rangeDeviceBW[0] << "," << rangeDeviceBW[1] << " (min,max)" << std::endl;
    outParamStr << "-----------------------------------------------------------------" << std::endl; 
-   outParamStr << "----------------------- Pipeline Congestion ---------------------" << std::endl; 
+   outParamStr << "----------------------- Pipeline Contention ---------------------" << std::endl; 
    outParamStr << "-----------------------------------------------------------------" << std::endl; 
-   outParamStr << "Run Congestion Test:\t\t" << runCongestionTest << std::endl;
-   outParamStr << "-----------------------------------------------------------------" << std::endl; 
-   outParamStr << "-------------------------- Memory Usage  ------------------------" << std::endl; 
-   outParamStr << "-----------------------------------------------------------------" << std::endl; 
-   outParamStr << "Run Memory Usage Test:\t\t" << runUsageTest << std::endl; 
+   outParamStr << "Run Contention Test:\t\t" << runContentionTest << std::endl;
+   outParamStr << "# Repeated Operations:\t\t" << numContRepeats << std::endl;
+   outParamStr << "Test Ranged Memory Blocks:\t" << testContRange << std::endl;
+   outParamStr << "Contention Range:\t\t";
+   outParamStr << rangeCont[0] << "," << rangeCont[1] << " (min,max)" << std::endl;
    outParamStr << "-----------------------------------------------------------------" << std::endl; 
    outParamStr << std::noboolalpha;
 

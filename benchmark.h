@@ -1,39 +1,30 @@
 //cuda headers and helper functions
-#include<cuda_runtime.h>
-#include<cuda.h>
+#include <cuda_runtime.h>
+#include <cuda.h>
 #include "helper_cuda.h"
 #include "nvml.h"
 
 // C/C++ standard includes
-#include<iostream>
-#include<stdio.h>
-#include<string>
-#include<vector>
-#include<time.h>
-#include<string>
-#include<fstream>
-#include<iostream>
-#include<ios>
-#include<vector>
-#include<unistd.h>
-#include<sys/time.h>
-#include<sstream>
-#include<iomanip>
-#include<algorithm>
-
-// Newer c++ timing lib 
-// Does not compile with older C++ compiler versions (i.e. RHEL 6 standard g++ version)
-#ifdef USING_CPP
-#include<chrono>
-#endif
+#include <iostream>
+#include <stdio.h>
+#include <string>
+#include <vector>
+#include <string>
+#include <fstream>
+#include <iostream>
+#include <ios>
+#include <vector>
+#include <unistd.h>
+#include <sstream>
+#include <iomanip>
+#include <algorithm>
 
 // OpenMP threading includes
-#include<omp.h>
+#include <omp.h>
 
 // NUMA Locality includes
-#include<hwloc.h>
-//#include<numa.h>
-#include<sched.h>
+#include <sched.h>
+#include <hwloc.h>
 
 // Time conversions for varying timing functions that are compatible 
 // with cuda, c++11 or older C++ versions
@@ -67,7 +58,6 @@ typedef enum {
    MAPPED,
    DEVICE
 } MEM_TYPE;
-
 
 // Memory allocation types to be used in benchmark suppost functions to adjust behavior of 
 // test run depending on benchmark parameters and cases being studied
