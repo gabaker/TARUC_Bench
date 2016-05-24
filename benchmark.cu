@@ -602,10 +602,10 @@ void RangeP2PBandwidthRun(BenchParams &params, SystemTopo &topo, std::vector<lon
 
 void NUMALatencyTest(SystemTopo &topo) {
 
-	long long blockSize = 1000000000;
+	long long blockSize = 4000000000;
 	long long numDoubles = blockSize / sizeof(double);
 
-	long long rangeWidth = 5;
+	long long rangeWidth = 1;
 	long long step = 1000000;
 
 	for (int socket = 0; socket < topo.NumSockets(); ++socket) {
@@ -628,17 +628,21 @@ void NUMALatencyTest(SystemTopo &topo) {
 				topo.SetHostMem(srcBlk, 10, blockSize);
 				topo.SetHostMem(destBlk, 0, blockSize);
 
+            topo.PinNode(srcNode);
 
             Timer timer(true);
 				timer.StartTimer();
 				
-				for (int repIdx = 0; repIdx < 1000; ++repIdx) {
+				for (int repIdx = 0; repIdx < 100000; ++repIdx) {
 					
 					for (long long idx = 0; idx < rangeWidth; ++idx)
 						destBlk[idx + startIdx] = srcBlk[idx + startIdx];
 					
 					startIdx = (startIdx + step) % numDoubles;
 				}
+            
+            topo.FreePinMem(srcBlk, blockSize);
+            topo.FreePinMem(destBlk, blockSize);
 				
 				timer.StopTimer();
 				time = timer.ElapsedTime();
