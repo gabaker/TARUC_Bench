@@ -66,43 +66,43 @@ Run w/ provided parameter file (parameters.in)
 
 The following is a sample parameter file demonstrating correct format. 
 
-   ------- Benchmark Parameters -------- 
-   Run Tag = anatta  
-   ------------- All Tests ------------- 
-   Use All GPUs = true  
-   Test All Mem Types = true  
-   Run Burst Tests = false  
-   Run Range Tests = true  
-   Run Sustained Tests = true  
-   Run Socket Effect Tests = true  
-   # Repeated Steps = 20  
-   # Steps Per Magnitude = 10 
+   ------- Benchmark Parameters --------    
+   Run Tag = anatta     
+   ------------- All Tests -------------    
+   Use All GPUs = true       
+   Test All Mem Types = true      
+   Run Burst Tests = false    
+   Run Range Tests = true    
+   Run Sustained Tests = true    
+   Run Socket Effect Tests = true    
+   # Repeated Steps = 20    
+   # Steps Per Magnitude = 10   
    Burst Block Size (bytes) = 64000000   
-   ---------- Memory Overhead ----------   
-   Run Memory Overhead Test = false   
-   Range Min = 100   
-   Range Max = 2500000000   
-   --------- Host-Host Bandwidth -------   
-   Run Host-Host Tests = false   
-   Vary Access Patterns = true   
-   Range Min = 100   
-   Range Max = 2500000000  
-   ------- Host-Device Bandwidth -------   
-   Run Host-Device Tests = false   
-   Vary Access Patterns = true   
-   Range Min = 100   
-   Range Max = 2500000000    
-   ----------- P2P Bandwidth -----------   
-   Run P2P Tests = false   
-   Range Min = 100   
-   Range Max = 1500000000   
-   -------- Resource Congestion --------   
-   Run Congestion Test = true   
-   # Repeated Operations = 40   
-   Local Host Block Size =  100000000   
-   QPI Host Block Size =    100000000   
-   Host-Device Block Size = 100000000   
-   -------------------------------------   
+   ---------- Memory Overhead ----------     
+   Run Memory Overhead Test = false      
+   Range Min = 100      
+   Range Max = 2500000000      
+   --------- Host-Host Bandwidth -------     
+   Run Host-Host Tests = false      
+   Vary Access Patterns = true     
+   Range Min = 100      
+   Range Max = 2500000000     
+   ------- Host-Device Bandwidth -------     
+   Run Host-Device Tests = false      
+   Vary Access Patterns = true      
+   Range Min = 100      
+   Range Max = 2500000000        
+   ----------- P2P Bandwidth -----------       
+   Run P2P Tests = false       
+   Range Min = 100      
+   Range Max = 1500000000      
+   -------- Resource Congestion --------     
+   Run Congestion Test = true      
+   # Repeated Operations = 40      
+   Local Host Block Size =  100000000     
+   QPI Host Block Size =    100000000     
+   Host-Device Block Size = 100000000     
+   -------------------------------------      
 
 
 ##Directory Structure and Project Files:
