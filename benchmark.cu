@@ -874,11 +874,11 @@ void ContentionSubTestQPI(BenchParams &params, SystemTopo &topo) {
                double time = (double) threadTimer.ElapsedTime() / (double) params.numContRepeats;
                double bandwidth = ((double) blockSize / (double) pow(2.0, 30.0)) / (time * conv) * (double) sizeof(double);
 
-               if (opIdx == 2)
+               /*if (opIdx == 2)
                   bandwidth *= 3;
                else //opIdx ==  1 or 0
                   bandwidth *= 2;
-              
+               */
                // place thread local bandwidth into bandwidth array 
                threadBW[threadIdx] = bandwidth; 
 
