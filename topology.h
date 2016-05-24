@@ -1,3 +1,6 @@
+#ifndef TOPOLOGY_CLASS_INC
+#define TOPOLOGY_CLASS_INC
+
 //cuda headers and helper functions
 #include <cuda_runtime.h>
 #include <cuda.h>
@@ -9,6 +12,7 @@
 #include <string>
 #include <vector>
 #include <sstream>
+//#include <cmath>
 
 // OpenMP threading includes
 #include <omp.h>
@@ -17,8 +21,6 @@
 #include <sched.h>
 #include <hwloc.h>
 
-#ifndef TOPOLOGY_CLASS_INC
-#define TOPOLOGY_CLASS_INC
 class SystemTopo
 {
    public:
