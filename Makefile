@@ -3,7 +3,7 @@ SHELL = /bin/sh
 CC=nvcc
 SOURCES=topology.cu parameters.cpp
 BENCH_EXE=run
-O_FILES=topology.o parameters.o
+O_FILES=parameters.o topology.o
 BENCH_FILES=benchmark.cu benchmark.h
 FLAGS= -std=c++11 -O3 -lhwloc -Xcompiler -fopenmp 
 #-L/usr/src/gdk/nvml/lib/ -lnvidia-ml -D_MWAITXINTRIN_H_INCLUDED
@@ -14,9 +14,6 @@ default: taruc
 
 nocpp: taruc_nocpp
 
-topology.o: topology.cu topology.h
-	$(CC) $(FLAGS) -c topology.cu -o topology.o
-
 parameters.o: parameters.cpp parameters.h
 	$(CC) $(FLAGS) -c parameters.cpp -o parameters.o
 
@@ -26,10 +23,13 @@ timer.o: timer.cu timer.h
 timer_nocpp.o: timer.cu timer.h
 	$(CC) $(FLAGS) -c timer.cu -o timer_nocpp.o
 
-benchmark.o: $(BENCH_FILES) $(O_FILES) timer.o
+topology.o: topology.cu topology.h
+	$(CC) $(FLAGS) -c topology.cu -o topology.o
+
+benchmark.o: timer.o $(O_FILES) $(BENCH_FILES)
 	$(CC) -D USING_CPP $(FLAGS) -c benchmark.cu -o benchmark.o
 
-benchmark_nocpp.o: $(BENCH_FILES) $(O_FILES) timer_nocpp.o
+benchmark_nocpp.o: timer_nocpp.o $(O_FILES) $(BENCH_FILES)
 	$(CC) $(FLAGS) -c benchmark.cu -o benchmark_nocpp.o
 
 taruc: $(O_FILES) benchmark.o
