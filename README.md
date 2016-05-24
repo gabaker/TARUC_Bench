@@ -1,25 +1,24 @@
-CUDA PCIe Bandwidth, Memory and Multi-GPU Benchmarks that accounts for multi socket systems with many variable model GPUs
+# Topology Aware Resource Usability and Contention (TARUC) Benchmark
 
 ####Author: Gavin Baker
 ####Contact:
-            gabaker@calpoly.edu
             gavin.m.baker@gmail.com
+            gabaker@calpoly.edu
 
-##Explaination of Goals:
+##Benchmark Overview:
 
-1. Goal 1
-2. Goal 2
-3. Goal 3
+CUDA PCIe Bandwidth, Memory and Multi-GPU Benchmarks that accounts for multi socket systems with many variable model GPUs
+
 
 ##Package Requirements:
 
 - C++11
-- CUDA toolkit
+- CUDA 7.5 (untested on earlier)
+- NVML
 - HWLOC
-- numa.h
-- python2.7+
-- openmp (omp.h)
-- Linux/Unix system (untested on OSX or Windows)
+- python2.7
+- OpenMP (omp.h)
+- Unix operating system
 
 ##Features:
 - CUDA support for multi-gpu systems
@@ -30,17 +29,26 @@ CUDA PCIe Bandwidth, Memory and Multi-GPU Benchmarks that accounts for multi soc
 - Distributed system awareness
 - Network communicaton
 
-
 ##Run Instructions:
 
-./scripts/run_benchmark.sh bench_params.in
+Run w/ Default parameters:
+
+      TARUC_Bench/scripts/run_benchmark.sh parameters.in
+
+Run w/ provided parameter file (parameters.in)
+
+      TARUC_Bench/scripts/run_benchmark.sh parameters.in
 
 ##Explaination of Directory Structure and Project Files:
+
+Folders:
 
 - scripts/
 - results/
 - misc/
 - sample_images/
+
+Files:
 
 - benchmark.cu
 - benchmark.h
@@ -51,4 +59,7 @@ CUDA PCIe Bandwidth, Memory and Multi-GPU Benchmarks that accounts for multi soc
 - parameters.in
 - topology.cu
 - topology.h
-
+- timer.cu
+- timer.h
+- nvml.h
+- Makefile
