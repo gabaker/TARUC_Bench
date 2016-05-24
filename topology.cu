@@ -1,7 +1,5 @@
-#ifndef TOPOLOGY_CLASS_INC
+
 #include "topology.h"
-#define TOPOLOGY_CLASS_INC
-#endif
 
 // --------------------------- Memory Allocation Functions -----------------------------
 
@@ -13,10 +11,15 @@ void * SystemTopo::AllocMemByCore(int CoreIdx, long long NumBytes) {
 
    // Allocate the memory on specified core without changing the CPU thread pinning policy
    void *MemBlock = hwloc_alloc_membind_policy(Topology, NumBytes, core->nodeset, HWLOC_MEMBIND_BIND, 
-                                                                                  HWLOC_MEMBIND_BYNODESET |
+																											 (1 << 5) |
                                                                                   HWLOC_MEMBIND_NOCPUBIND | 
                                                                                   HWLOC_MEMBIND_THREAD | 
                                                                                   HWLOC_MEMBIND_STRICT);
+	/*void *MemBlock = hwloc_alloc_membind_policy_nodeset(Topology, NumBytes, core->nodeset, HWLOC_MEMBIND_BIND, 
+                                                                                  HWLOC_MEMBIND_NOCPUBIND | 
+                                                                                  HWLOC_MEMBIND_THREAD | 
+                                                                                  HWLOC_MEMBIND_STRICT);
+*/
    // Check for errors thrown during allocation by hwloc
    // errors returned along with NULL
    if (MemBlock == NULL)
@@ -31,11 +34,13 @@ void * SystemTopo::AllocMemByNode(int NodeIdx, long long NumBytes) {
    // Get node object from hwloc topology tree
    hwloc_obj_t node = hwloc_get_obj_by_depth(Topology, NodeDepth, NodeIdx);
 
+																											//HWLOC_MEMBIND_BYNODESET |
    void *MemBlock = hwloc_alloc_membind_policy(Topology, NumBytes, node->nodeset, HWLOC_MEMBIND_BIND, 
-                                                                                  HWLOC_MEMBIND_BYNODESET |
+                                                                                  (1 << 5) |
                                                                                   HWLOC_MEMBIND_NOCPUBIND |
                                                                                   HWLOC_MEMBIND_THREAD | 
                                                                                   HWLOC_MEMBIND_STRICT);
+	// HWLOC_MEMBIND_BYNODESET
    // Check for errors thrown during allocation by hwloc
    // errors returned along with NULL
    if (MemBlock == NULL)
@@ -50,8 +55,9 @@ void * SystemTopo::AllocMemBySocket(int SocketIdx, long long NumBytes) {
    // Get CPU socket (vs NUMA node) object from hwloc topology tree
    hwloc_obj_t socket = hwloc_get_obj_by_depth(Topology, SocketDepth, SocketIdx);
 
+                                                                                    //HWLOC_MEMBIND_BYNODESET |
    void *MemBlock = hwloc_alloc_membind_policy(Topology, NumBytes, socket->nodeset, HWLOC_MEMBIND_BIND, 
-                                                                                    HWLOC_MEMBIND_BYNODESET |
+																												(1 << 5) |
                                                                                     HWLOC_MEMBIND_NOCPUBIND | 
                                                                                     HWLOC_MEMBIND_THREAD | 
                                                                                     HWLOC_MEMBIND_STRICT);
@@ -69,8 +75,9 @@ void * SystemTopo::AllocPinMemByNode(int NodeIdx, long long NumBytes) {
    // Get NUMA node object from hwloc topology tree
    hwloc_obj_t node = hwloc_get_obj_by_depth(Topology, NodeDepth, NodeIdx);
 
+                                                                                  //HWLOC_MEMBIND_BYNODESET |
    void *MemBlock = hwloc_alloc_membind_policy(Topology, NumBytes, node->nodeset, HWLOC_MEMBIND_BIND, 
-                                                                                  HWLOC_MEMBIND_BYNODESET |
+                                                                                  (1 << 5) |
                                                                                   HWLOC_MEMBIND_NOCPUBIND |
                                                                                   HWLOC_MEMBIND_THREAD | 
                                                                                   HWLOC_MEMBIND_STRICT);
@@ -94,15 +101,17 @@ void * SystemTopo::AllocWCMemByNode(int NodeIdx, long long NumBytes) {
    hwloc_nodeset_t initNodeSet = hwloc_bitmap_alloc();
    hwloc_membind_policy_t policy;
    
-   int error = hwloc_get_proc_membind(Topology, getpid(), initNodeSet, &policy, HWLOC_MEMBIND_BYNODESET);
+   int error = hwloc_get_proc_membind(Topology, getpid(), initNodeSet, &policy, //HWLOC_MEMBIND_BYNODESET);
+                                                                                  (1 << 5));
    if (error == -1)
       perror("Error during AllocWCMemByNode() trying to get existing membind policy from hwloc_get_proc_membind()");
 
    // Bind to node requested in NodeIdx
    hwloc_obj_t node = hwloc_get_obj_by_depth(Topology, NodeDepth, NodeIdx);
    hwloc_nodeset_t nodeSet = node->nodeset;
+                                                               //HWLOC_MEMBIND_BYNODESET |
    error = hwloc_set_proc_membind(Topology, getpid(), nodeSet, HWLOC_MEMBIND_BIND, 
-                                                               HWLOC_MEMBIND_BYNODESET |
+                                                               (1 << 5) |
                                                                HWLOC_MEMBIND_NOCPUBIND | 
                                                                HWLOC_MEMBIND_STRICT);
                                                                //HWLOC_MEMBIND_THREAD | 
@@ -114,8 +123,9 @@ void * SystemTopo::AllocWCMemByNode(int NodeIdx, long long NumBytes) {
    checkCudaErrors(cudaHostAlloc(&MemBlock, NumBytes, cudaHostAllocWriteCombined | cudaHostAllocPortable)); 
 
    // Reset memory binding to initial state
+                                                                   //HWLOC_MEMBIND_BYNODESET |
    error = hwloc_set_proc_membind(Topology, getpid(), initNodeSet, HWLOC_MEMBIND_BIND, 
-                                                                   HWLOC_MEMBIND_BYNODESET |
+                                                                   (1 << 5) |
                                                                    HWLOC_MEMBIND_NOCPUBIND | 
                                                                    HWLOC_MEMBIND_STRICT);
    if (error == -1)
@@ -132,15 +142,16 @@ void * SystemTopo::AllocManagedMemByNode(int NodeIdx, int DevIdx, long long NumB
    // write-combined memory cannot be allocated directly from hwloc
    hwloc_nodeset_t initNodeSet = hwloc_bitmap_alloc();
    hwloc_membind_policy_t policy;
-   int error = hwloc_get_proc_membind(Topology, getpid(), initNodeSet, &policy, HWLOC_MEMBIND_BYNODESET);
+   int error = hwloc_get_proc_membind(Topology, getpid(), initNodeSet, &policy, (1 << 5)); //HWLOC_MEMBIND_BYNODESET);
    if (error == -1)
       perror("Error during AllocManagedMemByNode() trying to get existing membind policy from hwloc_get_proc_membind()");
 
    // Bind to node requested in NodeIdx
    hwloc_obj_t node = hwloc_get_obj_by_depth(Topology, NodeDepth, NodeIdx);
    hwloc_nodeset_t nodeSet = node->nodeset;
+                                                               //HWLOC_MEMBIND_BYNODESET |
    error = hwloc_set_proc_membind(Topology, getpid(), nodeSet, HWLOC_MEMBIND_BIND, 
-                                                               HWLOC_MEMBIND_BYNODESET |
+																					(1 << 5) |
                                                                HWLOC_MEMBIND_NOCPUBIND | 
                                                                HWLOC_MEMBIND_STRICT);
    if (error == -1)
@@ -157,8 +168,9 @@ void * SystemTopo::AllocManagedMemByNode(int NodeIdx, int DevIdx, long long NumB
    checkCudaErrors(cudaSetDevice(initDevIdx));
 
    // Reset memory binding to initial state
+                                                                   //HWLOC_MEMBIND_BYNODESET |
    error = hwloc_set_proc_membind(Topology, getpid(), initNodeSet, HWLOC_MEMBIND_BIND, 
-                                                                   HWLOC_MEMBIND_BYNODESET |
+																						 (1 << 5) |
                                                                    HWLOC_MEMBIND_NOCPUBIND | 
                                                                    HWLOC_MEMBIND_STRICT);
    if (error == -1)
@@ -176,15 +188,16 @@ void * SystemTopo::AllocMappedMemByNode(int NodeIdx, int DevIdx, long long NumBy
    // write-combined memory cannot be allocated directly from hwloc
    hwloc_nodeset_t initNodeSet = hwloc_bitmap_alloc();
    hwloc_membind_policy_t policy;
-   int error = hwloc_get_proc_membind(Topology, getpid(), initNodeSet, &policy, HWLOC_MEMBIND_BYNODESET);
+   int error = hwloc_get_proc_membind(Topology, getpid(), initNodeSet, &policy, (1 << 5)); //HWLOC_MEMBIND_BYNODESET);
    if (error == -1)
       perror("Error during AllocManagedMemByNode() trying to get existing membind policy from hwloc_get_proc_membind()");
 
    // Bind to node requested in NodeIdx
    hwloc_obj_t node = hwloc_get_obj_by_depth(Topology, NodeDepth, NodeIdx);
    hwloc_nodeset_t nodeSet = node->nodeset;
+                                                               //HWLOC_MEMBIND_BYNODESET |
    error = hwloc_set_proc_membind(Topology, getpid(), nodeSet, HWLOC_MEMBIND_BIND, 
-                                                               HWLOC_MEMBIND_BYNODESET |
+																					(1 << 5) |
                                                                HWLOC_MEMBIND_NOCPUBIND | 
                                                                HWLOC_MEMBIND_STRICT);
    if (error == -1)
@@ -200,8 +213,9 @@ void * SystemTopo::AllocMappedMemByNode(int NodeIdx, int DevIdx, long long NumBy
    checkCudaErrors(cudaSetDevice(initDevIdx));
 
    // Reset memory binding to initial state
+                                                                   //HWLOC_MEMBIND_BYNODESET |
    error = hwloc_set_proc_membind(Topology, getpid(), initNodeSet, HWLOC_MEMBIND_BIND, 
-                                                                   HWLOC_MEMBIND_BYNODESET |
+																						 (1 << 5) |
                                                                    HWLOC_MEMBIND_NOCPUBIND | 
                                                                    HWLOC_MEMBIND_STRICT);
    if (error == -1)
@@ -352,9 +366,10 @@ void SystemTopo::PinNode(int NodeIdx) {
    hwloc_obj_t node = hwloc_get_obj_by_depth(Topology, NodeDepth, NodeIdx); 
 
    hwloc_nodeset_t nodeSet = node->nodeset;
-   int error = hwloc_set_proc_membind(Topology, getpid(), nodeSet, HWLOC_MEMBIND_BIND, HWLOC_MEMBIND_BYNODESET);
-   //if (error == -1)
-   //   perror("Error in PinNode() while setting binding policy in hwloc_set_proc_membind()");
+   int error = hwloc_set_proc_membind(Topology, getpid(), nodeSet, HWLOC_MEMBIND_BIND, //HWLOC_MEMBIND_BYNODESET);
+																													(1 << 5));
+   if (error == -1)
+      perror("Error in PinNode() while setting binding policy in hwloc_set_proc_membind()");
 }
 
 // Pin current thread to given CPU socket 

@@ -5,7 +5,7 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
-#include<math.h>
+//#include<math.h>
 
 #ifndef PARAM_CLASS_INC
 #define PARAM_CLASS_INC

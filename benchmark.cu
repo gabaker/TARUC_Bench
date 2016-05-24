@@ -481,7 +481,7 @@ void RangeHDBandwidthRun(BenchParams &params, SystemTopo &topo, std::vector<long
       topo.PinSocket(socketIdx);
  
       for (int hostIdx = 0; hostIdx < topo.NumNodes(); hostIdx++) { 
-         //topo.PinNode(hostIdx);
+         topo.PinNode(hostIdx);
 
          //Host-Device PCIe Memory Transfers
          for (int devIdx = 0; devIdx < params.nDevices; devIdx++) {
@@ -600,9 +600,59 @@ void RangeP2PBandwidthRun(BenchParams &params, SystemTopo &topo, std::vector<lon
    }
 }
 
+void NUMALatencyTest(SystemTopo &topo) {
+
+	long long blockSize = 1000000000;
+	long long numDoubles = blockSize / sizeof(double);
+
+	long long rangeWidth = 5;
+	long long step = 1000000;
+
+	for (int socket = 0; socket < topo.NumSockets(); ++socket) {
+
+		topo.PinSocket(0);
+	
+		for (int srcNode = 0; srcNode < topo.NumNodes(); ++srcNode) {
+
+			for (int destNode = srcNode; destNode < topo.NumNodes(); ++destNode) {
+
+				double * __restrict__ srcBlk = NULL;
+				double * __restrict__ destBlk = NULL;
+
+				double time = 0;
+				long long startIdx = 10000000;
+
+		
+				srcBlk = (double *) topo.AllocPinMemByNode(srcNode, blockSize);
+				destBlk = (double *) topo.AllocPinMemByNode(srcNode, blockSize);
+				topo.SetHostMem(srcBlk, 10, blockSize);
+				topo.SetHostMem(destBlk, 0, blockSize);
+
+
+            Timer timer(true);
+				timer.StartTimer();
+				
+				for (int repIdx = 0; repIdx < 1000; ++repIdx) {
+					
+					for (long long idx = 0; idx < rangeWidth; ++idx)
+						destBlk[idx + startIdx] = srcBlk[idx + startIdx];
+					
+					startIdx = (startIdx + step) % numDoubles;
+				}
+				
+				timer.StopTimer();
+				time = timer.ElapsedTime();
+				std::cout << srcNode << " " << destNode << " " << socket << " " << time / ((double) rangeWidth * 100) << std::endl;
+			}
+		}
+	}
+}
+
 void TestContention(BenchParams &params, SystemTopo &topo) {
    
    std::cout << "Running Contention tests..." << std::endl;
+
+	NUMALatencyTest(topo);
 
    /* Memory Access: Single Socket, Single Node
     *
@@ -672,7 +722,7 @@ void ContentionSubTestMem(BenchParams &params, SystemTopo &topo) {
                double scale = 12;
                // Place transfer onto each socket; alternating sockets for each transfer
                int socket = threadIdx % hostCount;
-               int core = threadIdx / hostCount;
+               int core = (threadIdx / hostCount) % topo.NumCoresPerSocket();
                
                // pin threads to execution space
                topo.PinCoreBySocket(socket, core);               
@@ -697,7 +747,7 @@ void ContentionSubTestMem(BenchParams &params, SystemTopo &topo) {
                #pragma omp barrier
                threadTimer.StartTimer();
                
-               for (register int repCount = 0; repCount < params.numContRepeats; repCount++) {
+               for (int repCount = 0; repCount < params.numContRepeats; repCount++) {
                   
                   if (opIdx == 0) {          // Memcopy
                   
@@ -705,13 +755,13 @@ void ContentionSubTestMem(BenchParams &params, SystemTopo &topo) {
                   
                   } else if (opIdx == 1) {   // Manual Copy (assignment operator)
                   
-                     for (register long long i = 0; i < blockSize; ++i)
+                     for (long long i = 0; i < blockSize; ++i)
                         destBlk[i] = srcBlk[i];
                   
                   } else {                   // Manual Triad (copy, scale, add)
                   
                      #pragma omp simd
-                     for (register long long i = 0; i < blockSize; ++i)
+                     for (long long i = 0; i < blockSize; ++i)
                         destBlk[i] = srcBlk[i] + scale * addBlk[i];
                   }
                }      
@@ -846,7 +896,7 @@ void ContentionSubTestQPI(BenchParams &params, SystemTopo &topo) {
                #pragma omp barrier
                threadTimer.StartTimer();
                
-               for (register int repCount = 0; repCount < params.numContRepeats; repCount++) {
+               for (int repCount = 0; repCount < params.numContRepeats; repCount++) {
                   
                   if (opIdx == 0) {          
                      
@@ -856,14 +906,14 @@ void ContentionSubTestQPI(BenchParams &params, SystemTopo &topo) {
                   } else if (opIdx == 1) {   
                      
                      // Manual Copy (assignment operator)
-                     for (register long long i = 0; i < blockSize; ++i)
+                     for (long long i = 0; i < blockSize; ++i)
                         destBlk[i] = srcBlk[i];
                   
                   } else {                   
 
                      // Manual Triad (copy, scale, add)
                      #pragma omp simd
-                     for (register long long i = 0; i < blockSize; ++i)
+                     for (long long i = 0; i < blockSize; ++i)
                         destBlk[i] = srcBlk[i] + scale * addBlk[i];
                   }
                }      
@@ -993,7 +1043,7 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
                   // Pin Cores for execution and NUMA memory regions; set GPU device
                   topo.PinCoreBySocket(node, core); 
                   topo.SetActiveDevice(devIdx);
-                  //topo.PinNode(node);
+                  topo.PinNode(node);
                   
                   // Allocate Host/Device memory and set initial values
                   devBlk = topo.AllocDeviceMem(devIdx, blockSize);
@@ -1007,7 +1057,7 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
             
                   threadTimer.StartTimer();
                    
-                  for (register int repCount = 0; repCount < params.numContRepeats; ++repCount) {
+                  for (int repCount = 0; repCount < params.numContRepeats; ++repCount) {
                      if (dir == 0)
                         MemCopyOp(devBlk, hostBlk, blockSize, HOST_PINNED_DEVICE_COPY, 0, 0, threadTimer.stream);
                      else
@@ -1102,7 +1152,7 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
                         
                         topo.SetActiveDevice(device);
                         topo.PinCoreBySocket(socket, core);
-                        //topo.PinNode(socket);
+                        topo.PinNode(socket);
                         
                         // Allocate Host/Device Memory
                         devBlk = topo.AllocDeviceMem(device, blockSize);
@@ -1118,7 +1168,7 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
                   
                         threadTimer.StartTimer();
           
-                        for (register int repCount = 0; repCount < params.numContRepeats; repCount++) {
+                        for (int repCount = 0; repCount < params.numContRepeats; repCount++) {
                            if (dir == 0)
                               MemCopyOp(hostBlk, devBlk, blockSize, DEVICE_HOST_PINNED_COPY, 0, 0, threadTimer.stream);
                            else
@@ -1193,7 +1243,7 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
                   
                   topo.SetActiveDevice(devIdx);
                   topo.PinCoreBySocket(node, core);
-                  //topo.PinNode(node);
+                  topo.PinNode(node);
                   
                   // Allocate Device Memory
                   devBlk = topo.AllocDeviceMem(devIdx, blockSize);
@@ -1209,7 +1259,7 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
             
                   threadTimer.StartTimer();
     
-                  for (register int repCount = 0; repCount < params.numContRepeats; repCount++) {
+                  for (int repCount = 0; repCount < params.numContRepeats; repCount++) {
                      if (dir == 0)
                         MemCopyOp(devBlk, hostBlk, blockSize, HOST_PINNED_DEVICE_COPY, 0, 0, threadTimer.stream);
                      else 
