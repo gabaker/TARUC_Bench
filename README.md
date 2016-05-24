@@ -67,9 +67,7 @@ Run w/ provided parameter file (parameters.in)
 The following is a sample parameter file demonstrating correct format. 
 
    ------- Benchmark Parameters --------
-
    Run Tag = anatta
-
    ------------- All Tests -------------
 
    Use All GPUs = true
