@@ -6,4 +6,6 @@ then
 fi
 
 ./scripts/clean_results.sh
+
 make clean
+

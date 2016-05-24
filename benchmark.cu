@@ -1,8 +1,8 @@
 
 // Benchmark includes and defines
 #ifndef BENCH_HEADER_INC
-#define BENCH_HEADER_INC
 #include "benchmark.h"
+#define BENCH_HEADER_INC
 #endif
 
 // BenchParams class definition
@@ -41,7 +41,7 @@ void RangeP2PBandwidthRun(BenchParams &params, SystemTopo &topo, std::vector<lon
 void BurstHDBandwidthRun(BenchParams &params, SystemTopo &topo, std::vector<std::vector<float> > &burstData); 
 void BurstHHBandwidthRun(BenchParams &params, SystemTopo &topo, std::vector<std::vector<float> > &burstData); 
 void BurstP2PBandwidthRun(BenchParams &params, SystemTopo &topo, std::vector<std::vector<float> > &burstData);  
-void ContentionSubTestMemAccess(BenchParams &params, SystemTopo &topo, std::vector<long long> &blockSteps);
+void ContentionSubTestMem(BenchParams &params, SystemTopo &topo);
 void ContentionSubTestQPI(BenchParams &params, SystemTopo &topo);
 void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo);
 void ContentionSubTestP2P(BenchParams &params, SystemTopo &topo);
@@ -52,15 +52,18 @@ float TimedMemManageOp(void **MemBlk, long long NumBytes, MEM_OP TimedOp);
 float TimedMemCopyStep(void * destPtr, void *srcPtr, long long stepSize, long long blockSize, int numCopiesPerStep, MEM_OP copyType, MEM_PATTERN patternType, int destIdx = 0, int srcIdx = 0);
 float BurstMemCopy(SystemTopo &topo, long long blockSize, MEM_OP copyType, int destIdx, int srcIdx, int numSteps, MEM_PATTERN pattern = REPEATED); 
 void MemCopyOp(void * destPtr, void *srcPtr, long long stepSize, MEM_OP copyType, int destIdx = 0, int srcIdx = 0, cudaStream_t stream = 0);
+int CalcRunSteps(std::vector<long long> &blockSteps, long long startStep, long long stopStep, long long numSteps);
+
+// Memory Operation Functions Based on enum Types (see benchmark.h)
 void AllocMemBlocks(SystemTopo &topo, void **destPtr, void **srcPtr, long long numBytes, MEM_OP copyType, int destIdx = 0, int srcIdx = 0);
 void AllocMemBlock(SystemTopo &topo, void **blkPtr, long long numBytes, MEM_TYPE blockType, int srcIdx, int extIdx = 0);
 void FreeMemBlocks(SystemTopo &topo, void* destPtr, void *srcPtr, long long numBytes, MEM_OP copyType, int destIdx = 0, int srcIdx = 0);
 void SetMemBlocks(SystemTopo &topo, void *destPtr, void *srcPtr, long long numBytes, MEM_OP copyType, int destIdx, int srcIdx, int value); 
 void SetMemBlock(SystemTopo &topo, void *blkPtr, long long numBytes, long long value, MEM_TYPE memType, int devIdx = 0);
-int CalcRunSteps(std::vector<long long> &blockSteps, long long startStep, long long stopStep, long long numSteps);
 
-// Results output
+// Results Output (CSV or stdio)
 void PrintRangedHeader(BenchParams &params, SystemTopo &topo, std::ofstream &fileStream, BW_RANGED_TYPE testType); 
+void PrintResults(std::ofstream &outFile, std::vector<std::vector<float> > &results);
 void PrintResults(std::ofstream &outFile, std::vector<long long> &steps, std::vector<std::vector<float> > &results);
 void PrintHHBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std::vector<float> > &burstData);
 void PrintHDBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std::vector<float> > &burstData);
@@ -68,10 +71,7 @@ void PrintP2PBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std:
 
 std::vector<std::string> PatternNames{"Repeated","Random", "Linear Increasing","Linear Decreasing"};
  
-/* Benchmark main()
- * 
- * 
- */
+// TARUC Benchmark main()
 int main (int argc, char **argv) {
    BenchParams benchParams;  
    SystemTopo sysTopo;
@@ -79,7 +79,7 @@ int main (int argc, char **argv) {
    std::cout << "\nStarting Multi-GPU, Multi-NUMA Performance Test Suite...\n" << std::endl; 
    
    // Determine the number of recognized CUDA enabled devices
-   checkCudaErrors(cudaGetDeviceCount(&(benchParams.nDevices)));
+   benchParams.nDevices = sysTopo.NumGPUs();
 
    // Exit if system contains no devices
    if (benchParams.nDevices <= 0) {
@@ -87,7 +87,7 @@ int main (int argc, char **argv) {
       exit(-1);
    }
 
-   // Setup benchmark parameters
+   // Setup benchmark parameters from file (non-default) if parameter file provided
    if (argc == 1) { 
    
       // No input file, use default parameters
@@ -114,17 +114,18 @@ int main (int argc, char **argv) {
    sysTopo.PrintTopology(topoFile);
 
    // Output device properties for each CUDA enabled GPU to file
-   sysTopo.PrintDeviceProps(benchParams);
+   sysTopo.PrintDeviceProps(benchParams.devPropFile);
 
    // Check parameters and fix parameters associated with boolean flags
    if (benchParams.runSustainedTests == false)
       benchParams.numStepRepeats = 1;
 
+   // Check if socket tests are enabled
    benchParams.nSockets = 1;
    if (benchParams.runSocketTests)
       benchParams.nSockets = sysTopo.NumSockets();
-   
 
+   // Check if multiple devices are to be used for bandwidth and overhead tests
    if (!benchParams.runAllDevices)
       benchParams.nDevices = 1;
 
@@ -140,7 +141,7 @@ int main (int argc, char **argv) {
 }
 
 void RunBenchmarkSuite(BenchParams &params, SystemTopo &topo) {
-
+   
    // Memory overhead tests (allocation and deallocations)
    if (params.runMemoryOverheadTest)
       TestMemoryOverhead(params, topo);
@@ -171,59 +172,55 @@ void RunBenchmarkSuite(BenchParams &params, SystemTopo &topo) {
 }
 
 void TestMemoryOverhead(BenchParams &params, SystemTopo &topo) {
-   std::cout << "\nRunning Ranged Memory Overhead Test...\n" << std::endl;
-   
-   char *deviceMem = NULL;//, * managedMem = NULL, * mappedMem = NULL; 
-   char *hostPageMem = NULL, *hostPinnedMem = NULL, * hostCombinedMem = NULL;
+   void *deviceMem = NULL, *hostPageMem = NULL, *hostPinnedMem = NULL, * hostCombinedMem = NULL;
    std::vector<long long> steps;
    std::vector<std::vector<float> > overheadData;
    int testNum = 0;
-  
+   
+   std::cout << "\nRunning Ranged Memory Overhead Test...\n" << std::endl;
+ 
+   // Calculate memory block size range form input parameters
    CalcRunSteps(steps, params.rangeMemOverhead[0], params.rangeMemOverhead[1], params.numRangeSteps);  
    overheadData.resize(steps.size());
    
-   // Memory overhead test will run for each device utilizing the cudaMalloc and cudaFree functions
-   // on the first iteration of the look, assuming there is atleast one device, the host will run the 
-   // pinned and un-pinned memory tests
+   // Iterate through combinations of CPU sockets and NUMA Nodes
    for (int socketIdx = 0; socketIdx < params.nSockets; socketIdx++) {
       topo.PinSocket(socketIdx);
  
-      for (int numaIdx = 0; numaIdx < topo.NumNodes(); numaIdx++) { 
-         topo.PinNumaNode(numaIdx);
+      for (int nodeIdx = 0; nodeIdx < topo.NumNodes(); nodeIdx++) { 
+         topo.PinNode(nodeIdx);
         
-         std::cout << "Test " << testNum++ << " Host Alloc/Free, Pinned/Pageable/Write-Combined\t" << "NUMA node: " << numaIdx << " CPU " << socketIdx << std::endl;            
-         // Host based management for CASE 1 & 2
+         std::cout << "Test " << testNum++ << " Host Alloc/Free, Pinned/Pageable/Write-Combined\t" << "NUMA node: " << nodeIdx << " CPU " << socketIdx << std::endl;            
+         
+         // Host based management memory types
          for (long stepIdx = 0; stepIdx < steps.size(); stepIdx++) {
-            long long chunkSize = steps[stepIdx];
             
+            long long chunkSize = steps[stepIdx];
             float hostAllocTime = 0, pinAllocTime = 0, combAllocTime = 0;//, managedAllocTime = 0, mappedAllocTime = 0;
             float hostFreeTime = 0, pinFreeTime = 0, combFreeTime = 0;//, managedFreeTime = 0, mappedFreeTime = 0; 
-            // repeat same block run and average times
+            
+            // Repeat each memory block size allocation/deallocation reIdx number of times
             for (int reIdx = 0; reIdx < params.numStepRepeats; reIdx++) {
-               hostFreeTime += TimedMemManageOp((void **) &hostPageMem, chunkSize, HOST_MALLOC);
+               hostFreeTime += TimedMemManageOp(&hostPageMem, chunkSize, HOST_MALLOC);
                SetMemBlock(topo, hostPageMem, chunkSize, 0, PAGE);
-               hostAllocTime += TimedMemManageOp((void **) &hostPageMem, chunkSize, HOST_FREE);
+               hostAllocTime += TimedMemManageOp(&hostPageMem, chunkSize, HOST_FREE);
 
                if (params.testAllMemTypes) {
-                  pinAllocTime += TimedMemManageOp((void **) &hostPinnedMem, chunkSize, HOST_PINNED_MALLOC);
+                  pinAllocTime += TimedMemManageOp(&hostPinnedMem, chunkSize, HOST_PINNED_MALLOC);
                   SetMemBlock(topo, hostPinnedMem, chunkSize, 0, PINNED);
-                  pinFreeTime += TimedMemManageOp((void **) &hostPinnedMem, chunkSize, HOST_PINNED_FREE); 
+                  pinFreeTime += TimedMemManageOp(&hostPinnedMem, chunkSize, HOST_PINNED_FREE); 
                
-                  combAllocTime += TimedMemManageOp((void **) &hostCombinedMem, chunkSize, HOST_COMBINED_MALLOC);
+                  combAllocTime += TimedMemManageOp(&hostCombinedMem, chunkSize, HOST_COMBINED_MALLOC);
                   SetMemBlock(topo, hostCombinedMem, chunkSize, 0, WRITE_COMBINED);
-                  combFreeTime += TimedMemManageOp((void **) &hostCombinedMem, chunkSize, HOST_COMBINED_FREE);
-
-                  /*managedAllocTime += TimedMemManageOp((void **) &managedMem, chunkSize, MANAGED_MALLOC);
-                  SetMemBlock(topo, managedMem, chunkSize, 0, MANAGED);
-                  managedFreeTime += TimedMemManageOp((void **) &managedMem, chunkSize, MANAGED_FREE);
-
-                  mappedAllocTime += TimedMemManageOp((void **) &mappedMem, chunkSize, MAPPED_MALLOC);
-                  SetMemBlock(topo, mappedMem, chunkSize, 0, MAPPED);
-                  mappedFreeTime += TimedMemManageOp((void **) &mappedMem, chunkSize, MAPPED_FREE); */
+                  combFreeTime += TimedMemManageOp(&hostCombinedMem, chunkSize, HOST_COMBINED_FREE);
                }
             }
+
+            // Average host timings for all repeated steps
             hostAllocTime /= (float) params.numStepRepeats;
             hostFreeTime /= (float) params.numStepRepeats;
+
+            // Set min value for 0 returns; this is essential maximum accuracy
             if (hostAllocTime < 0.2)
                hostAllocTime = 0.2;
             if (hostFreeTime < 0.2)            
@@ -237,47 +234,51 @@ void TestMemoryOverhead(BenchParams &params, SystemTopo &topo) {
 
             overheadData[stepIdx].push_back(combAllocTime / (float) params.numStepRepeats);
             overheadData[stepIdx].push_back(combFreeTime / (float) params.numStepRepeats);
-
-            //overheadData[stepIdx].push_back(managedAllocTime / (float) params.numStepRepeats);
-            //overheadData[stepIdx].push_back(managedFreeTime / (float) params.numStepRepeats);
-            
-            //overheadData[stepIdx].push_back(mappedFreeTime / (float) params.numStepRepeats);
-            //overheadData[stepIdx].push_back(mappedFreeTime / (float) params.numStepRepeats);
-
          }   
       }
 
       topo.PinSocket(socketIdx);
-      topo.PinNumaNode(socketIdx);
-      // Device based memory management for CASE 3 & 4
+
+      // Device based memory management overhead; iterate through all devices
       for (int currDev = 0; currDev < params.nDevices; currDev++) {
          topo.SetActiveDevice(currDev);
+
          std::cout << "Test " << testNum++ << " Device Alloc/Free \t\t\t\t" << "CPU " << socketIdx << " Dev:" << currDev << std::endl;            
-         
+        
+         // Test each block size in order 
          for (long stepIdx = 0; stepIdx < steps.size(); stepIdx++) {
+
             long long chunkSize = steps[stepIdx];
             float devAllocTime = 0, devFreeTime = 0;
 
-            // repeat same block run and average times
+            // Repeat device allocations/deallocations
             for (int reIdx = 0; reIdx < params.numStepRepeats; reIdx++) {
-               // CASE 3: Allocation of device memory  
-               devAllocTime += TimedMemManageOp((void **) &deviceMem, chunkSize, DEVICE_MALLOC);
+
+               // Allocation of device memory  
+               devAllocTime += TimedMemManageOp(&deviceMem, chunkSize, DEVICE_MALLOC);
                SetMemBlock(topo, deviceMem, chunkSize, 0, DEVICE, currDev);
-               // CASE 4: DeAllocation of device memory 
-               devFreeTime += TimedMemManageOp((void **) &deviceMem, chunkSize, DEVICE_FREE);
+
+               // DeAllocation of device memory 
+               devFreeTime += TimedMemManageOp(&deviceMem, chunkSize, DEVICE_FREE);
+
             }
 
+            // Average all runs of each management operation
             overheadData[stepIdx].push_back(devAllocTime / (float) params.numStepRepeats);
             overheadData[stepIdx].push_back(devFreeTime / (float) params.numStepRepeats);
          }
       }
    }
-   
+
+   // Open Overhead results file   
    std::string dataFileName = "./results/overhead/" + params.runTag + "_overhead.csv";
    std::ofstream overheadResultsFile(dataFileName.c_str());
+
+   // Output Header to results file
    overheadResultsFile << params.nSockets << ",";
    overheadResultsFile << topo.NumNodes() << ",";
    overheadResultsFile << params.nDevices;
+
    if (params.testAllMemTypes)
       overheadResultsFile << ",t";
    else 
@@ -286,36 +287,42 @@ void TestMemoryOverhead(BenchParams &params, SystemTopo &topo) {
    for (int i = 0; i < params.nDevices; i++)
       overheadResultsFile << "," << topo.GetDeviceName(i);
    overheadResultsFile << std::endl;
+
+   // Print results file to .csv file
    PrintResults(overheadResultsFile, steps, overheadData);
 
    std::cout << "\nMemory Overhead Test Complete!" << std::endl;
 }
 
 void HHRangeTransferTest(BenchParams &params, SystemTopo &topo) {
-   std::cout << "\nRunning Ranged Host-Host Bandwidth Tests...\n" << std::endl;
-   
    std::vector<std::vector<float> > rangeData;
    std::vector<long long> steps;
+   
+   std::cout << "\nRunning Ranged Host-Host Bandwidth Tests...\n" << std::endl;
     
+   // Calculate memory block size range form input parameters
    CalcRunSteps(steps, params.rangeHostHostBW[0], params.rangeHostHostBW[1], params.numRangeSteps); 
    rangeData.resize(steps.size());
-   
+  
+   // Run ranged block size host-host memory transfer test 
    RangeHHBandwidthRun(params, topo, steps, rangeData);
 
+   // Output results as transfer time (aka function call time)
    // tt == Transfer Time
    std::string dataFileName = "./results/bandwidth/" + params.runTag + "_ranged_hh_tt.csv";
    std::ofstream ttResultsFileHH(dataFileName.c_str());
    PrintRangedHeader(params, topo, ttResultsFileHH, HH); 
    PrintResults(ttResultsFileHH, steps, rangeData);
 
-   // Output throughput (GB/S) and block size
+   // Output results as bandwidth/throughput (GB/S)
    for (int blkIdx = 0; blkIdx < steps.size(); ++blkIdx) {
       for (int runIdx = 0; runIdx < rangeData[blkIdx].size(); ++runIdx) {
-         rangeData[blkIdx][runIdx] = ((double) steps[blkIdx]) / rangeData[blkIdx][runIdx] * 1.0e6;
+         rangeData[blkIdx][runIdx] = ((double) steps[blkIdx]) / rangeData[blkIdx][runIdx] * 1.0E6;
          rangeData[blkIdx][runIdx] /= pow(2.0, 30.0);
       }
    }
 
+   // Output header and results to CSV file
    dataFileName = "./results/bandwidth/" + params.runTag + "_ranged_hh_bw.csv";
    std::ofstream bwResultsFileHH(dataFileName.c_str());
    PrintRangedHeader(params, topo, bwResultsFileHH, HH); 
@@ -325,30 +332,34 @@ void HHRangeTransferTest(BenchParams &params, SystemTopo &topo) {
 }
 
 void HDRangeTransferTest(BenchParams &params, SystemTopo &topo) {
-   std::cout << "\nRunning Ranged Host-Device Bandwidth Tests...\n" << std::endl;
-   
    std::vector<std::vector<float> > rangeData;
    std::vector<long long> steps;
+   
+   std::cout << "\nRunning Ranged Host-Device Bandwidth Tests...\n" << std::endl;
 
+   // Calculate memory block size range form input parameters
    CalcRunSteps(steps, params.rangeHostDeviceBW[0], params.rangeHostDeviceBW[1], params.numRangeSteps); 
    rangeData.resize(steps.size());
-   
+  
+   // Run ranged block size host-device memory transfer test 
    RangeHDBandwidthRun(params, topo, steps, rangeData);
    
+   // Output results as transfer time (aka function call time)
    // tt == Transfer Time
    std::string dataFileName = "./results/bandwidth/" + params.runTag + "_ranged_hd_tt.csv";
    std::ofstream ttResultsFileHD(dataFileName.c_str());
    PrintRangedHeader(params, topo, ttResultsFileHD, HD); 
    PrintResults(ttResultsFileHD, steps, rangeData);
 
-   // Output throughput (GB/S) and block size
+   // Output results as bandwidth/throughput (GB/S)
    for (int blkIdx = 0; blkIdx < steps.size(); ++blkIdx) {
       for (int runIdx = 0; runIdx < rangeData[blkIdx].size(); ++runIdx) {
-         rangeData[blkIdx][runIdx] = ((double) steps[blkIdx]) / rangeData[blkIdx][runIdx] * 1.0e6;
+         rangeData[blkIdx][runIdx] = ((double) steps[blkIdx]) / rangeData[blkIdx][runIdx] * 1.0E6;
          rangeData[blkIdx][runIdx] /= pow(2.0, 30.0);
       }
    }
 
+   // Output header and results to CSV file
    dataFileName = "./results/bandwidth/" + params.runTag + "_ranged_hd_bw.csv";
    std::ofstream bwResultsFileHD(dataFileName.c_str());
    PrintRangedHeader(params, topo, bwResultsFileHD, HD); 
@@ -358,30 +369,33 @@ void HDRangeTransferTest(BenchParams &params, SystemTopo &topo) {
 }
 
 void P2PRangeTransferTest(BenchParams &params, SystemTopo &topo){
-   std::cout << "\nRunning P2P Device Ranged Bandwidth test..." << std::endl;
-
    std::vector<std::vector<float> > rangeData;
    std::vector<long long> steps;
+   
+   std::cout << "\nRunning P2P Device Ranged Bandwidth test..." << std::endl;
 
+   // Calculate memory block size range form input parameters
    CalcRunSteps(steps, params.rangeDeviceBW[0], params.rangeDeviceBW[1], params.numRangeSteps); 
    rangeData.resize(steps.size());
    
    RangeP2PBandwidthRun(params, topo, steps, rangeData);
 
+   // Output results as transfer time (aka function call time)
    // tt == Transfer Time
    std::string dataFileName = "./results/bandwidth/" + params.runTag + "_ranged_p2p_tt.csv";
    std::ofstream ttResultsFileP2P(dataFileName.c_str());
    PrintRangedHeader(params, topo, ttResultsFileP2P, P2P); 
    PrintResults(ttResultsFileP2P, steps, rangeData);
 
-   // Output throughput (GB/S) and block size
+   // Output results as bandwidth/throughput (GB/S)
    for (int blkIdx = 0; blkIdx < steps.size(); ++blkIdx) {
       for (int runIdx = 0; runIdx < rangeData[blkIdx].size(); ++runIdx) {
-         rangeData[blkIdx][runIdx] = ((double) steps[blkIdx]) / rangeData[blkIdx][runIdx] * 1.0e6;
+         rangeData[blkIdx][runIdx] = ((double) steps[blkIdx]) / rangeData[blkIdx][runIdx] * 1.0E6;
          rangeData[blkIdx][runIdx] /= pow(2.0, 30.0);
       }
    }
 
+   // Output header and results to CSV file
    dataFileName = "./results/bandwidth/" + params.runTag + "_ranged_p2p_bw.csv";
    std::ofstream bwResultsFileP2P(dataFileName.c_str());
    PrintRangedHeader(params, topo, bwResultsFileP2P, P2P); 
@@ -398,9 +412,11 @@ void RangeHHBandwidthRun(BenchParams &params, SystemTopo &topo, std::vector<long
       topo.PinSocket(socketIdx);
  
       for (int srcIdx = 0; srcIdx < topo.NumNodes(); srcIdx++) { 
+         //topo.PinNode(srcIdx);
 
          //Host To Host Memory Transfers
          for (int destIdx = 0; destIdx < topo.NumNodes(); destIdx++) { 
+            
             // HtoH Ranged Transfer - Pageable Memory
             std::cout << "Test " << testNum++ << " HtoH, Pageable Memory\t\t\tCPU: " << socketIdx << "\t\tNUMA Src: " << srcIdx << "\tDest NUMA: " << destIdx << std::endl;
             MemCopyRun(topo, blockSteps, bandwidthData, HOST_HOST_COPY, REPEATED, destIdx, srcIdx, numRepeats); 
@@ -410,6 +426,7 @@ void RangeHHBandwidthRun(BenchParams &params, SystemTopo &topo, std::vector<long
             }
 
             if (params.testAllMemTypes) {
+               
                // HtoH Ranged Transfer - Pinned Memory Src Host
                std::cout << "Test " << testNum++ << " HtoH, Pinned Memory Src  \t\tCPU: " << socketIdx << "\t\tNUMA Src: " << srcIdx << "\tDest NUMA: " << destIdx << std::endl;
                MemCopyRun(topo, blockSteps, bandwidthData, HOST_PINNED_HOST_COPY, REPEATED, destIdx, srcIdx, numRepeats);
@@ -426,7 +443,7 @@ void RangeHHBandwidthRun(BenchParams &params, SystemTopo &topo, std::vector<long
                   MemCopyRun(topo, blockSteps, bandwidthData, HOST_HOST_PINNED_COPY, LINEAR_DEC, destIdx, srcIdx, numRepeats); 
                }
 
-              // HtoH Ranged Transfer - Pinned Memory Both Hosts
+               // HtoH Ranged Transfer - Pinned Memory Both Hosts
                std::cout << "Test " << testNum++ << " HtoH, Both Pinned Memory \t\tCPU: " << socketIdx << "\t\tNUMA Src: " << srcIdx << "\tDest NUMA: " << destIdx << std::endl;
                MemCopyRun(topo, blockSteps, bandwidthData, HOST_HOST_COPY_PINNED, REPEATED, destIdx, srcIdx, numRepeats); 
                if (params.runPatternsHD) {
@@ -437,6 +454,7 @@ void RangeHHBandwidthRun(BenchParams &params, SystemTopo &topo, std::vector<long
                // HtoH Ranged Transfer - Write-Combined Memory Src Host
                /*std::cout << "Test " << testNum++ << " HtoH, Write-Combined Memory Src    \tCPU: " << socketIdx << "\t\tNUMA Src: " << srcIdx << "\tDest NUMA: " << destIdx << std::endl;
                MemCopyRun(topo, blockSteps, bandwidthData, HOST_COMBINED_HOST_COPY, REPEATED, destIdx, srcIdx, numRepeats);
+               
                if (params.runPatternsHD){ 
                   MemCopyRun(topo, blockSteps, bandwidthData, HOST_COMBINED_HOST_COPY, LINEAR_INC, destIdx, srcIdx, numRepeats); 
                   MemCopyRun(topo, blockSteps, bandwidthData, HOST_COMBINED_HOST_COPY, LINEAR_DEC, destIdx, srcIdx, numRepeats); 
@@ -463,10 +481,12 @@ void RangeHDBandwidthRun(BenchParams &params, SystemTopo &topo, std::vector<long
       topo.PinSocket(socketIdx);
  
       for (int hostIdx = 0; hostIdx < topo.NumNodes(); hostIdx++) { 
-         topo.PinNumaNode(hostIdx);
+         //topo.PinNode(hostIdx);
+
          //Host-Device PCIe Memory Transfers
          for (int devIdx = 0; devIdx < params.nDevices; devIdx++) {
             topo.SetActiveDevice(devIdx);
+            
             // HtoD Ranged Transfer - Pageable Memory
             std::cout << "Test " << testNum++ << " HtoD, Pageable Memory\t\tCPU: " << socketIdx << "\t\tNUMA Src: " << hostIdx << "\tDev Dev: " << devIdx << std::endl;
             MemCopyRun(topo, blockSteps, bandwidthData, HOST_DEVICE_COPY, REPEATED, devIdx, hostIdx, numRepeats); 
@@ -475,7 +495,6 @@ void RangeHDBandwidthRun(BenchParams &params, SystemTopo &topo, std::vector<long
                MemCopyRun(topo, blockSteps, bandwidthData, HOST_DEVICE_COPY, LINEAR_DEC, devIdx, hostIdx, numRepeats); 
             }
 
-            //blockSteps, bandwidthData, copyType, patternType, int devIdx, int srcIdx, int numCopies); 
             // DtoH Ranged Transfer - Pageable Memory
             std::cout << "Test " << testNum++ << " DtoH, Pageable Memory\t\tCPU: " << socketIdx << "\t\tDev Src: " << devIdx << "\tNUMA Dest: " << hostIdx << std::endl;
             MemCopyRun(topo, blockSteps, bandwidthData, DEVICE_HOST_COPY, REPEATED, hostIdx, devIdx, numRepeats); 
@@ -485,6 +504,7 @@ void RangeHDBandwidthRun(BenchParams &params, SystemTopo &topo, std::vector<long
             }
             
             if (params.testAllMemTypes) {
+               
                // HtoD Ranged Transfer - Pinned Memory
                std::cout << "Test " << testNum++ << " HtoD, Pinned Memory\t\tCPU: " << socketIdx << "\t\tNUMA Src: " << hostIdx << "\tDest Dev: " << devIdx << std::endl;
                MemCopyRun(topo, blockSteps, bandwidthData, HOST_PINNED_DEVICE_COPY, REPEATED, devIdx, hostIdx, numRepeats); 
@@ -523,62 +543,67 @@ void RangeHDBandwidthRun(BenchParams &params, SystemTopo &topo, std::vector<long
 }
 
 void RangeP2PBandwidthRun(BenchParams &params, SystemTopo &topo, std::vector<long long> &blockSteps, std::vector<std::vector<float> > &bandwidthData) {
-   int testNum = 0;
+
    long numRepeats = params.numStepRepeats;  
-   
+   int testNum = 0;
+  
+   // Iterate through each socker and GPU device pair 
    for (int socketIdx = 0; socketIdx < params.nSockets; socketIdx++) {
       topo.PinSocket(socketIdx);
  
       for (int srcIdx = 0; srcIdx < topo.NumGPUs(); srcIdx++) { 
 
-         for (int destIdx = 0; destIdx < topo.NumGPUs(); destIdx++) { 
+         for (int destIdx = srcIdx; destIdx < topo.NumGPUs(); destIdx++) {
+
             // DtoD Ranged Transfer - No Peer, No UVA
-            std::cout << "Test " << testNum++ << " Device-To-Device, No Peer, No UVA\tCPU: " << socketIdx << "\tSrc Device: " << srcIdx << "\tDest Device: " << destIdx << std::endl;
+            std::cout << "Test " << testNum++ << " Device-To-Device, No Peer\tCPU: " << socketIdx << "\tSrc Device: " << srcIdx << "\tDest Device: " << destIdx << std::endl;
+            
+            topo.SetActiveDevice(srcIdx);
             MemCopyRun(topo, blockSteps, bandwidthData, DEVICE_DEVICE_COPY, REPEATED, destIdx, srcIdx, numRepeats); 
+
+            // DtoD Ranged Transfer - No Peer, No UVA
+            if (destIdx != srcIdx) {
+
+               std::cout << "Test " << testNum++ << " Device-To-Device, No Peer\tCPU: " << socketIdx << "\tDest Device: " << srcIdx << "\tSrc Device: " << destIdx << std::endl;
+               
+               topo.SetActiveDevice(destIdx);
+               MemCopyRun(topo, blockSteps, bandwidthData, DEVICE_DEVICE_COPY, REPEATED, srcIdx, destIdx, numRepeats); 
+
+            }
 
             // DtoD Ranged Transfer - Peer, No UVA
             if (topo.DeviceGroupCanP2P(srcIdx, destIdx)) {
-            std::cout << "Test " << testNum++ << " Device-To-Device, Peer Enabled, No UVA\tCPU: " << socketIdx << "\tSrc Device: " << srcIdx << "\tDest Device: " << destIdx << std::endl;
+
+               std::cout << "Test " << testNum++ << " Device-To-Device, Peer Enabled\tCPU: " << socketIdx << "\tSrc Device: " << srcIdx << "\tDest Device: " << destIdx << std::endl;
+               
+               // For device pairs with peer access, enable P2P flags
                topo.DeviceGroupSetP2P(srcIdx, destIdx, true);
+               
+               topo.SetActiveDevice(srcIdx);
                MemCopyRun(topo, blockSteps, bandwidthData, PEER_COPY_NO_UVA, REPEATED, destIdx, srcIdx, numRepeats);  
-               topo.DeviceGroupSetP2P(srcIdx, destIdx, false);
-            }
-            
-            /*if (topo.DeviceGroupUVA(srcIdx, destIdx)) {  
-               // DtoD Ranged Transfer - No Peer, UVA
-               std::cout << "Test " << testNum++ << " Device-To-Device, No Peer, UVA\t\tCPU: " << socketIdx << "\tSrc Device: " << srcIdx << "\tDest Device: " << destIdx << std::endl;
-               MemCopyRun(topo, blockSteps, bandwidthData, COPY_UVA, REPEATED, destIdx, srcIdx, numRepeats); 
- 
-               // DtoD Ranged Transfer - Peer, UVA
-               if (topo.DeviceGroupCanP2P(srcIdx, destIdx)) {
-                  std::cout << "Test " << testNum++ << " Device-To-Device, Peer Enabled, UVA\tCPU: " << socketIdx << "\tSrc Device: " << srcIdx << "\tDest Device: " << destIdx << std::endl;
-                  topo.DeviceGroupSetP2P(srcIdx, destIdx, true);
-                  MemCopyRun(topo, blockSteps, bandwidthData, COPY_UVA, REPEATED, destIdx, srcIdx, numRepeats); 
-                  topo.DeviceGroupSetP2P(srcIdx, destIdx, false);
+
+               if (destIdx != srcIdx) {
+
+                  std::cout << "Test " << testNum++ << " Device-To-Device, Peer Enabled\tCPU: " << socketIdx << "\tDest Device: " << srcIdx << "\tSrc Device: " << destIdx << std::endl;
+                  
+                  topo.SetActiveDevice(destIdx);
+                  MemCopyRun(topo, blockSteps, bandwidthData, PEER_COPY_NO_UVA, REPEATED, srcIdx, destIdx, numRepeats);  
+
                }
-            }*/
+
+               // Return P2P flags back to false for GPU pair 
+               topo.DeviceGroupSetP2P(srcIdx, destIdx, false);
+
+            }
          }
       }
    }
 }
 
 void TestContention(BenchParams &params, SystemTopo &topo) {
+   
    std::cout << "Running Contention tests..." << std::endl;
 
-   // No parameters for this test, set default here
-   // TODO: migrate relevent parameters to param file input
-
-   if (params.testAllMemTypes) 
-      params.numContMemTypes = 2;
-   else
-      params.numContMemTypes = 1;
-  
-   std::vector<long long> blockSteps;
-   if (params.testContRange)
-      CalcRunSteps(blockSteps, params.rangeCont[0], params.rangeCont[1], params.numContRepeats);
-   else
-      CalcRunSteps(blockSteps, params.rangeCont[1], params.rangeCont[1], params.numContRepeats);
- 
    /* Memory Access: Single Socket, Single Node
     *
     * Host-Host single node memory access
@@ -586,344 +611,666 @@ void TestContention(BenchParams &params, SystemTopo &topo) {
     * since destination is same as source.
     */
 
-   ContentionSubTestMemAccess(params, topo, blockSteps);
+   ContentionSubTestMem(params, topo);
 
    /* QPI Bus Test (Multiple Sockets)
     *
     * Host-to-Host: bidirectional and unidirectional
     * Pin multiple cores on a single 
     */
+
    if (topo.NumSockets() >= 2)
       ContentionSubTestQPI(params, topo);
    else
       std::cout << "One Socket Detected: No inter-CPU communication bus to test!" << std::endl;
-
+  
    /* PCIe (Single and Multiple Sockets)
     * 
     * Host-to-Device & Device-to-Host: bidirectional and unidirectional
     * Single socket (avoid QPI effects) to each combination of GPUs
     */
-   //ContentionSubTestPCIe(params, topo);
 
-   /* P2P
-    * 
-    * Host-Host Transfers: bidirectional and unidirectionsal 
-    * Every combination up to one per transfer
-    * Multiple from one to all devices (if more than one)
-    */
-   //ContentionSubTestP2P(params, topo);
+   ContentionSubTestPCIe(params, topo);
 
-   std::cout << "Contention tests complete!" << std::endl;
+   std::cout << "\nContention tests complete!" << std::endl;
 }
 
-void TestMemoryUsage(BenchParams &params, SystemTopo &topo) {
-   std::cout << "\nRunning memory usage pattern tests..." << std::endl;
+void ContentionSubTestMem(BenchParams &params, SystemTopo &topo) {
 
-   std::cout << "Test not yet implemented!" << std::endl;
-
-   std::cout << "\nMemory usage patterns tests complete!" << std::endl;
-}
-
-void ContentionSubTestMemAccess(BenchParams &params, SystemTopo &topo, std::vector<long long> &blockSteps) {
-   //int numThreads = 1;
-   //int maxThreads = topo.NumPUsPerCore() * topo.NumCoresPerSocket();//topo.NumCores();//topo.NumCoresPerSocket();
-/*   int PUsPerSocket = topo.NumCoresPerSocket() * topo.NumPUsPerCore();
-   //float threadBW[topo.NumPUs()];
-   float aggBW = 0;
-   MEM_TYPE memType;
-   //MEM_OP copyType = HOST_PINNED_HOST_COPY;
-   float conv = 1.0e-6; 
-   int NumOps = 2; 
-   std::vector<std::vector<float> > data;
-   data.resize(blockSteps.size());
-   std::cout << PUsPerSocket << std::endl;
-   std::cout << "Main Memory Contention Test" << std::endl;
-
-   long long blockSize = blockSteps[blockSteps.size() - 1] / sizeof(double);
-   //static double srcBlk[blockSize];
-   //static double destBlk[blockSize];
-
-   for (int socketCount = 0; socketCount < topo.NumSockets(); socketCount++) {
-      for (int memIdx = 0; memIdx < params.numContMemTypes; memIdx++) {
-         for (int opIdx = 0; opIdx < NumOps; opIdx++) {
-            if (memIdx == 0)
-               memType = PAGE;
-            else
-               memType = PINNED;
-
-            std::cout << "- " << socketCount << " - " << memIdx << " - " << opIdx << std::endl;
-            int maxThreads = (socketCount + 1) * topo.NumCoresPerSocket() * topo.NumPUsPerCore();
-            int numThreads = 1;
-            do {
-               omp_set_num_threads(numThreads);
-
-               #pragma omp parallel
-               {
-                  // Get local thread ID
-                  int threadIdx = omp_get_thread_num();
-                  double * srcBlk, * destBlk;
-                  // Set the memory type and timers as indicated by memIdx
-
-                  // pin threads to execution space (socket)
-                  // TODO: Check to see pinning per core works then change this
-                  //topo.PinPUBySocket(threadIdx / PUsPerSocket, threadIdx % PUsPerSocket);
-                  topo.PinSocket(threadIdx / PUsPerSocket);
-                  //topo.PinPU(threadIdx * (socketIdx + 1));
-                  //todo.PinCoreBySocket();
-    
-                  // allocate src and dest blocks to NUMA nodes
-                  AllocMemBlock(topo, (void **) &srcBlk, blockSteps[blockSteps.size() - 1], memType, threadIdx / PUsPerSocket);
-                  AllocMemBlock(topo, (void **) &destBlk, blockSteps[blockSteps.size() - 1], memType, threadIdx / PUsPerSocket);
-                  SetMemBlock(topo, srcBlk, blockSize, 1, memType);
-                  SetMemBlock(topo, destBlk, blockSize, 0, memType);
-                  
-
-                  // Run ranged test for each thread, sync between steps
-                  for (int stepIdx = 0; stepIdx < blockSteps.size(); stepIdx++) {
-                     double totalTime = 0;
-                     #pragma omp barrier
-
-                     #pragma omp master
-                     {
-                     static Timer threadTimer(true);//useHostTimer);
-                     threadTimer.StartTimer();
-                     }
-                     #pragma omp for
-                     for (int repCount = 0; repCount < params.numContRepeats; repCount++) {
-                        
-                        #pragma omp for 
-                        for (register long long i = 0; i < blockSize; ++i)
-                           destBlk[i] = srcBlk[i];   
-                        
-                        //threadTimer.StopTimer();                     
-                        //totalTime += (double) threadTimer.ElapsedTime();
-                     }
-                     
-                     #pragma omp barrier*/
-                     // initiate transfers on each thread simultaneously 
-       
-                     /*for (int repCount = 0; repCount < params.numContRepeats; repCount++) {
-                        if (opIdx == 0)
-                           MemCopyOp(destBlk, srcBlk, blockSteps[stepIdx], copyType);
-                        else
-                           SetMemBlock(topo, srcBlk, blockSteps[blockSteps.size() - 1], repCount % 2, memType);
-                           //SetMemBlock(topo, destBlk, blockSteps[blockSteps.size() - 1], repCount % 2, memType);
-                     }*/
-                     /*#pragma omp master
-                     {
-                     totalTime = totalTime / (double) params.numContRepeats;
-                     long long totalBytes = blockSteps[blockSteps.size() - 1];
-                     double bandwidth = ((double) totalBytes / (double) pow(2.0, 30.0)) / (totalTime * conv);
-                     //threadBW[threadIdx] = bandwidth; 
-
-                     // sum aggragite bandwidths
-                     //#pragma omp atomic
-
-                     //#pragma omp barrier
-
-                     //#pragma omp single
-                     //{
-                        data[0].push_back(aggBW);
-                        aggBW = bandwidth;
-                        //for (int i = 0; i < omp_get_num_threads(); ++i) {
-                        //   aggBW += threadBW[i];
-                        //   data[stepIdx].push_back(threadBW[i]);
-                        //}
-                        std::cout << numThreads << "|" << blockSize << ": " << aggBW << std::endl;
-                        aggBW = 0;
-                     }
-                  }
-                  if (memType == PAGE) {
-                     topo.FreeHostMem(srcBlk, params.rangeCont[1]);
-                     topo.FreeHostMem(destBlk, params.rangeCont[1]);
-                  } else {
-                     topo.FreePinMem(srcBlk, params.rangeCont[1]);
-                     topo.FreePinMem(destBlk, params.rangeCont[1]);
-                  }
-               }
-
-               if (numThreads == 1)
-                  numThreads++;
-               else 
-                  numThreads *= 2;
-
-            } while (numThreads <= maxThreads);
-         }
-      }
-   }
-
-   // Output results
-   // Header: sockets, memtypes, max thread count, test range
-   std::string dataFileName = "./results/contention/" + params.runTag + "_Contention_host_mem_.csv";
-   std::ofstream resultsFile(dataFileName.c_str());
-   resultsFile << topo.NumSockets() << ","; 
-   resultsFile << params.numContMemTypes << ","; 
-   resultsFile << topo.NumCoresPerSocket() * topo.NumPUsPerCore() << ","; 
-   if (params.testContRange) 
-      resultsFile << "t" << std::endl;
-   else  
-      resultsFile << "f" << std::endl;
-   PrintResults(resultsFile, blockSteps, data);
-   */
-}
-
-void ContentionSubTestQPI(BenchParams &params, SystemTopo &topo) {
-   int NumDirs = 2; // Copy Directions: 0->1 unidirectional, bidirectional
-   MEM_TYPE memType;
-   MEM_OP copyType = HOST_PINNED_HOST_COPY;
-
-   float aggBW = 0;
-   float conv = 1.0e-6; 
-   long long blockSize = params.rangeCont[1];
    float threadBW[topo.NumPUs()];
-   std::vector<long long> blockSteps;
-   blockSteps.push_back(blockSize); 
    std::vector<std::vector<float> > data;
-   data.resize(1);
+   long long blockSize = params.contBlockSize[0] / sizeof(double);
+   
+   int testNum = 0;
+   int NumOps = 3;
+   float conv = 1.0E-6; 
 
-   std::cout << "Socket-Socket Communication Contention" << std::endl;
-   for (int copyDir = 0; copyDir < NumDirs; copyDir++) {
-      for (int memIdx = 0; memIdx < params.numContMemTypes; memIdx++) {
-         std::cout << "- " << copyDir << " - " << memIdx << " - " << std::endl;
+   std::cout << "\nLocal Memory Contention Micro-Benchmarks:" << std::endl;
+   std::cout << "Test Options: \n\tHost Count: \n\t\t1...N (N = # NUMA Nodes)" << std::endl;
+   std::cout << "\tOperations:\n\t\t0 = memcopy()\n\t\t1 = manual copy\n\t\t2 = triad (manual copy/scale/add)\n" << std::endl;
 
-         if (memIdx == 0)
-            memType = PAGE;
-         else
-            memType = PINNED;
-          
-         int numThreads = 1;
-         int MaxThreads = topo.NumPUs();
-         if (copyDir == 0)
-            MaxThreads /= topo.NumSockets();
-         
-         do {
+   for (int hostCount = 1; hostCount <= topo.NumSockets(); ++hostCount) {
+      
+      for (int opIdx = 0; opIdx < NumOps; ++opIdx) {
+
+         int MaxThreads = topo.NumPUsPerSocket() * hostCount;
+
+         std::cout << "Test " << testNum++ << "\tNum Host Nodes: " << hostCount;
+         std::cout << " Operation: " << opIdx << " Max Threads: " << MaxThreads << std::endl; 
+
+         for (int numThreads = 1; numThreads <= MaxThreads; ++numThreads) {
+            
             omp_set_num_threads(numThreads);
             #pragma omp parallel
             {
                // Get local thread ID
                int threadIdx = omp_get_thread_num();
-               void * srcBlk, * destBlk;
-               int srcNode = 0, destNode = 0, coreIdx = 0;
-               Timer threadTimer(true);
+               double* __restrict__ srcBlk;
+               double* __restrict__ destBlk;
+               double* __restrict__ addBlk;
 
-               // Set the memory type and timers as indicated by memIdx
-               coreIdx = threadIdx % topo.NumCoresPerSocket();
-               if (copyDir == 0) { // unidirectional, only testing one direction; should be equivalent 
-                  srcNode = 0;
-                  destNode = 1;
-               } else if (copyDir == 1) { // bidirectional
-                  srcNode = (threadIdx / topo.NumPUsPerSocket()) % 2;
-                  destNode = (threadIdx / topo.NumPUsPerSocket() + 1) % 2;
-               } 
+               double scale = 12;
+               // Place transfer onto each socket; alternating sockets for each transfer
+               int socket = threadIdx % hostCount;
+               int core = threadIdx / hostCount;
                
-               // allocate memory and pin threads to execution space
-               // TODO: Check to see pinning per core works then change this
-               //topo.PinCore(coreIdx); //
-               topo.PinCoreBySocket(srcNode, coreIdx);
-               //AllocMemBlock(topo, &srcBlk, blockSize, memType, srcNode);
-               //AllocMemBlock(topo, &destBlk, blockSize, memType, destNode);
-               //SetMemBlock(topo, srcBlk, blockSize, 0x0, memType);
-               //SetMemBlock(topo, destBlk, blockSize, 0x0, memType);
-  
-               // initiate transfers on each thread simultaneously 
+               // pin threads to execution space
+               topo.PinCoreBySocket(socket, core);               
+
+               // Allocate thread local memory to correct NUMA node
+               AllocMemBlock(topo, (void **) &srcBlk, blockSize * sizeof(double), PAGE, socket);
+               AllocMemBlock(topo, (void **) &destBlk, blockSize * sizeof(double), PAGE, socket);
+               if (opIdx != 0)
+                  AllocMemBlock(topo, (void **) &addBlk, blockSize * sizeof(double), PAGE, socket);
+              
+               // Set memory to initial values 
+               SetMemBlock(topo, (void *) srcBlk, blockSize * sizeof(double), 8, PAGE);
+               SetMemBlock(topo, (void *) destBlk, blockSize * sizeof(double), 0, PAGE);
+               if (opIdx != 0)
+                  SetMemBlock(topo, (void *) addBlk, blockSize * sizeof(double), 3, PAGE);
+               
+               // Initialize timer with host timer 
+               Timer threadTimer(true);
+               
+               // start timer and initiate memory operations on each thread simultaneously
+               // wait for all threads to be fully initialized (allocation, timer, memset) 
                #pragma omp barrier
                threadTimer.StartTimer();
                
-               for (register int repCount = 0; repCount < params.numContRepeats; repCount++) 
-                  MemCopyOp(destBlk, srcBlk, blockSize, copyType);
-               
-               //#pragma omp barrier
+               for (register int repCount = 0; repCount < params.numContRepeats; repCount++) {
+                  
+                  if (opIdx == 0) {          // Memcopy
+                  
+                     MemCopyOp(destBlk, srcBlk, blockSize * sizeof(double), HOST_HOST_COPY);
+                  
+                  } else if (opIdx == 1) {   // Manual Copy (assignment operator)
+                  
+                     for (register long long i = 0; i < blockSize; ++i)
+                        destBlk[i] = srcBlk[i];
+                  
+                  } else {                   // Manual Triad (copy, scale, add)
+                  
+                     #pragma omp simd
+                     for (register long long i = 0; i < blockSize; ++i)
+                        destBlk[i] = srcBlk[i] + scale * addBlk[i];
+                  }
+               }      
+         
                threadTimer.StopTimer();     
                   
                // calculate thread local bandwidth
                double time = (double) threadTimer.ElapsedTime() / (double) params.numContRepeats;
-               double bandwidth = ((double) blockSize / (double) pow(2.0, 30.0)) / (time * conv);
+               double bandwidth = ((double) blockSize / (double) pow(2.0, 30.0)) / (time * conv) * (double) sizeof(double);
               
+               if (opIdx == 2)
+                  bandwidth *= 3;
+               else //opIdx ==  1 or 0
+                  bandwidth *= 2;
+
+ 
+               // place thread local bandwidth into bandwidth array 
                threadBW[threadIdx] = bandwidth; 
 
-               // sum aggragite bandwidths
-               #pragma omp atomic
-               aggBW += bandwidth;
-
+               // Wait for all threads to complete operations and calculate bandwidth
                #pragma omp barrier
-
+               
+               // Calculate aggregate bandwidth and push thread bandwidths to data vector
                #pragma omp single
                {
-                  for (int i = 0; i < omp_get_num_threads(); ++i)
-                     data[0].push_back(threadBW[i]);
-                  data[0].push_back(aggBW);
+                  double aggBW = 0;
+                  for (int i = 0; i < numThreads; ++i)
+                     aggBW += threadBW[i];
                   
                   std::cout << numThreads << ": " << aggBW << std::endl;
-                  aggBW = 0;
-               }
-            
-               if (memType == PAGE) {
-                  topo.FreeHostMem(srcBlk, blockSize);
-                  topo.FreeHostMem(destBlk, blockSize);
-               } else {
-                  topo.FreePinMem(srcBlk, blockSize);
-                  topo.FreePinMem(destBlk, blockSize);
-               }
 
+                  std::vector<float> testData;
+                  testData.push_back(aggBW);
+                  for (int i = 0; i < omp_get_num_threads(); ++i)
+                     testData.push_back(threadBW[i]);
+                  data.push_back(testData);
+             
+               }
+               
+               // Free thread local memory blocks 
+               topo.FreeHostMem(srcBlk, blockSize * sizeof(double));
+               topo.FreeHostMem(destBlk, blockSize * sizeof(double));
+               if (opIdx != 0)
+                  topo.FreeHostMem(addBlk, blockSize * sizeof(double));
             }
-            if (numThreads == 1)
-               numThreads++;
-            else 
-               //numThreads*=2;
-               numThreads+=2;
-         } while (numThreads <= MaxThreads);
+         } 
       }
    }
 
-   // Output results
-   std::string dataFileName = "./results/contention/" + params.runTag + "_contention_inter_socket_.csv";
+   // Open results file for output
+   std::string dataFileName = "./results/contention/mem/" + params.runTag + "_mem_contention_.csv";
    std::ofstream resultsFile(dataFileName.c_str());
 
-   //TODO Confirm these are correct header values
+   // Print header to output file
    resultsFile << topo.NumSockets() << ","; 
-   resultsFile << params.numContMemTypes << ","; 
-   resultsFile << topo.NumPUsPerCore() * topo.NumCoresPerSocket() << ","; 
-   if (params.testContRange) 
-      resultsFile << "t" << std::endl;
-   else  
-      resultsFile << "f" << std::endl;
-   PrintResults(resultsFile, blockSteps, data);
+   resultsFile << topo.NumPUsPerSocket() << std::endl;
 
+   // Print results to output file
+   PrintResults(resultsFile, data);
+}
+
+void ContentionSubTestQPI(BenchParams &params, SystemTopo &topo) {
+   
+   float threadBW[topo.NumPUs()];
+   std::vector<std::vector<float> > data;
+   long long blockSize = params.contBlockSize[1] / sizeof(double);
+
+   int testNum = 0;
+   int NumDirs = 2; // Copy Directions: 0->1 unidirectional, bidirectional
+   int NumOps = 3;
+   float conv = 1.0E-6; 
+
+   std::cout << "\nSocket-Socket Communication (QPI) Contention Micro-Benchmarks" << std::endl;
+   std::cout << "Test Options: \n\tDirections:\n\t\t0 = unidirectional\n\t\t1 = bidirectional" << std::endl;
+   std::cout << "\tOperations:\n\t\t0 = memcopy()\n\t\t1 = manual copy\n\t\t2 = triad (manual copy/scale/add)\n" << std::endl;
+
+   for (int copyDir = 0; copyDir < NumDirs; copyDir++) {
+      
+      for (int opIdx = 0; opIdx < NumOps; ++opIdx) {
+
+         int MaxThreads = topo.NumPUs();
+
+         std::cout << "Test " << testNum++ << "\tDirection: " << copyDir;
+         std::cout << " Operation: " << opIdx << " Max Threads: " << MaxThreads << std::endl; 
+
+         for (int numThreads = 1; numThreads <= MaxThreads; ++numThreads) {
+            omp_set_num_threads(numThreads);
+            
+            #pragma omp parallel
+            {
+               // Get local thread ID
+               int threadIdx = omp_get_thread_num();
+               double* __restrict__ srcBlk;
+               double* __restrict__ destBlk;
+               double* __restrict__ addBlk;
+
+               double scale = 12;
+               int srcNode = 0, destNode = 0;
+               int core = 0;
+
+               // Calculate correct NUMA nodes and execution core for each copy direction
+               if (copyDir == 0) { // unidirectional, only testing one direction; should be equivalent 
+                  srcNode = 0;
+                  destNode = 1;
+                  core = threadIdx % topo.NumCoresPerSocket();
+               } else if (copyDir == 1) { // bidirectional; alternate src and dest nodes for each thread
+                  srcNode = threadIdx % 2; 
+                  destNode = (threadIdx + 1) % 2; 
+                  core = (threadIdx / 2) % topo.NumCoresPerSocket();
+               } 
+               
+               // pin threads to execution space
+               topo.PinCoreBySocket(srcNode, core);
+               
+               // Allocate thread local memory to correct NUMA node
+               AllocMemBlock(topo, (void **) &srcBlk, blockSize * sizeof(double), PAGE, srcNode);
+               AllocMemBlock(topo, (void **) &destBlk, blockSize * sizeof(double), PAGE, destNode);
+               if (opIdx != 0)
+                  AllocMemBlock(topo, (void **) &addBlk, blockSize * sizeof(double), PAGE, srcNode);
+              
+               // Set thread memory to initial values 
+               SetMemBlock(topo, (void *) srcBlk, blockSize * sizeof(double), 8, PAGE);
+               SetMemBlock(topo, (void *) destBlk, blockSize * sizeof(double), 0, PAGE);
+               if (opIdx != 0)
+                  SetMemBlock(topo, (void *) addBlk, blockSize * sizeof(double), 3, PAGE);
+               
+               // Initialize timer to use host based timing (vs CUDA events)
+               Timer threadTimer(true);
+ 
+               // start timer and initiate memory operations on each thread simultaneously
+               // wait for all threads to be fully initialized (allocation, timer, memset) 
+               #pragma omp barrier
+               threadTimer.StartTimer();
+               
+               for (register int repCount = 0; repCount < params.numContRepeats; repCount++) {
+                  
+                  if (opIdx == 0) {          
+                     
+                     // Memcopy
+                     MemCopyOp(destBlk, srcBlk, blockSize * sizeof(double), HOST_HOST_COPY);
+                  
+                  } else if (opIdx == 1) {   
+                     
+                     // Manual Copy (assignment operator)
+                     for (register long long i = 0; i < blockSize; ++i)
+                        destBlk[i] = srcBlk[i];
+                  
+                  } else {                   
+
+                     // Manual Triad (copy, scale, add)
+                     #pragma omp simd
+                     for (register long long i = 0; i < blockSize; ++i)
+                        destBlk[i] = srcBlk[i] + scale * addBlk[i];
+                  }
+               }      
+         
+               threadTimer.StopTimer();     
+            
+               // calculate thread local bandwidth
+               double time = (double) threadTimer.ElapsedTime() / (double) params.numContRepeats;
+               double bandwidth = ((double) blockSize / (double) pow(2.0, 30.0)) / (time * conv) * (double) sizeof(double);
+
+               if (opIdx == 2)
+                  bandwidth *= 3;
+               else //opIdx ==  1 or 0
+                  bandwidth *= 2;
+              
+               // place thread local bandwidth into bandwidth array 
+               threadBW[threadIdx] = bandwidth; 
+
+               // Wait for all threads to complete transfers and add thread bandwidths to array
+               #pragma omp barrier
+
+               // Calculate aggregate bandwidth and push thread bandwidths to data vector
+               #pragma omp single
+               {  
+                  float aggBW = 0;
+                  for (int i = 0; i < numThreads; ++i)
+                     aggBW += threadBW[i];
+                  
+                  std::cout << numThreads << ": " << aggBW << std::endl;
+
+                  std::vector<float> testData;
+                  testData.push_back(aggBW);
+                     
+                  for (int i = 0; i < numThreads; ++i)
+                     testData.push_back(threadBW[i]);
+                  data.push_back(testData);
+              
+               }
+           
+               // Free thread local memory  
+               topo.FreeHostMem(srcBlk, blockSize * sizeof(double));
+               topo.FreeHostMem(destBlk, blockSize * sizeof(double));
+               if (opIdx != 0)
+                  topo.FreeHostMem(addBlk, blockSize * sizeof(double));
+            }
+         } 
+      }
+   }
+
+   // Open results file for output
+   std::string dataFileName = "./results/contention/qpi/" + params.runTag + "_qpi_contention_.csv";
+   std::ofstream resultsFile(dataFileName.c_str());
+
+   // Print header to output file
+   resultsFile << topo.NumSockets() << ","; 
+   resultsFile << topo.NumPUs() << std::endl;
+
+   // Print results to output file
+   PrintResults(resultsFile, data);
 }
 
 void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
-   int maxThreads = 1;   
 
+   std::vector<std::vector<float> > data;
+   long long blockSize = params.contBlockSize[2];
+   float threadBW[topo.NumCores()];
+   
+   // Set Local Test Parameters  
+   int testNum = 0; 
+   int numDirs = 3; // to, from, both
+   int maxThreads = topo.NumPUs();
+   int numSocketTests = params.nSockets + 1; // one per socket + all sockets
+   if (params.nSockets == 1)
+      numSocketTests = 1;
+
+   std::cout << "\nPCIe Contention Micro-Benchmark" << std::endl;
+   std::cout << "Test Options: \n\tDirections:\n\t\t0,1 = unidirectional\n\t\t2 = bidirectional" << std::endl;
+   std::cout << "\tSocket Num: \n\t0...n (n = all sockets)\n\tDevice: \n\t\t0, N-1 (N = # GPUs)" << std::endl;
+
+   std::cout << "\nSingle Device Contention Tests: " << std::endl;
+
+   // Single Device Contention w/ Multiple Host Threads
+   for (int devIdx = 0; devIdx < params.nDevices; ++devIdx) {
+      
+      for (int dirIdx = 0; dirIdx < numDirs; ++dirIdx) {
+         
+         for (int socketIdx = 0; socketIdx < numSocketTests; ++socketIdx) {
+            
+            if (socketIdx != (numSocketTests - 1)) {
+               maxThreads = 8;
+               maxThreads = min(topo.NumCoresPerSocket(), maxThreads);
+            } else {
+               maxThreads = topo.NumSockets() * 8;
+               maxThreads = min(topo.NumCores(), maxThreads);
+            }
+
+            std::cout << "Test " << testNum++ << "\t\tDevice: " << devIdx << " Socket: " << socketIdx;
+            std::cout << " Direction: " << dirIdx << " Max Threads: " << maxThreads << std::endl; 
+
+            for (int numThreads = 1; numThreads <= maxThreads; ++numThreads) {
+               
+               omp_set_num_threads(numThreads);
+               #pragma omp parallel
+               {
+                  // Get local thread ID
+                  int threadIdx = omp_get_thread_num();
+                  void * __restrict__ hostBlk, * __restrict__ devBlk;
+                  int node, core, dir;
+
+                  node = socketIdx;
+                  core = threadIdx % topo.NumCoresPerSocket();
+                  if (socketIdx == 2) {
+                     node = threadIdx % topo.NumSockets();
+                     core = threadIdx / topo.NumSockets();
+                  }                  
+
+                  if (dirIdx == 0) {
+                     dir = 0;
+                  } else if (dirIdx == 1) {
+                     dir = 1;
+                  } else { //dirIdx == 2
+                     node = threadIdx % 2;
+                     dir = (threadIdx / 2) % 2;
+                     core = 2 * (threadIdx / (2 * topo.NumSockets())) + dir;
+                  }
+
+                  // Pin Cores for execution and NUMA memory regions; set GPU device
+                  topo.PinCoreBySocket(node, core); 
+                  topo.SetActiveDevice(devIdx);
+                  //topo.PinNode(node);
+                  
+                  // Allocate Host/Device memory and set initial values
+                  devBlk = topo.AllocDeviceMem(devIdx, blockSize);
+                  hostBlk = topo.AllocPinMemByNode(node, blockSize);
+                  topo.SetHostMem(hostBlk, 1, blockSize);
+                  topo.SetDeviceMem(devBlk, 0, blockSize, devIdx);
+                  
+                  // Initialize local thread timer with CUDA event timing and wait for all threads to finish allocation steps
+                  Timer threadTimer(false); 
+                  #pragma omp barrier
+            
+                  threadTimer.StartTimer();
+                   
+                  for (register int repCount = 0; repCount < params.numContRepeats; ++repCount) {
+                     if (dir == 0)
+                        MemCopyOp(devBlk, hostBlk, blockSize, HOST_PINNED_DEVICE_COPY, 0, 0, threadTimer.stream);
+                     else
+                        MemCopyOp(hostBlk, devBlk, blockSize, DEVICE_HOST_PINNED_COPY, 0, 0, threadTimer.stream);
+                  }
+                  
+                  threadTimer.StopTimer();     
+                                   
+                  // calculate thread local bandwidth
+                  double time = (double) threadTimer.ElapsedTime() / (double) params.numContRepeats;
+                  double bandwidth = ((double) blockSize / (double) pow(2.0, 30.0)) / (time * 1.0E-6);
+                  
+                  // place thread local bandwidth into bandwidth array 
+                  threadBW[threadIdx] = bandwidth; 
+
+                  // Wait for all threads to complete transfers and add thread bandwidths to array
+                  #pragma omp barrier
+
+                  // Calculate aggregate bandwidth and push thread bandwidths to data vector
+                  #pragma omp single
+                  {  
+                     double aggBW = 0;
+                     for (int i = 0; i < numThreads; ++i)
+                        aggBW += threadBW[i];
+
+                     std::cout << numThreads << ": " << aggBW << std::endl;
+                     
+                     std::vector<float> testData;
+                     testData.push_back(aggBW);
+                        
+                     for (int i = 0; i < numThreads; ++i)
+                        testData.push_back(threadBW[i]);
+                     data.push_back(testData);
+                 
+                  }
+                  // Free thread local memory  
+                  topo.FreePinMem(hostBlk, blockSize);
+                  topo.FreeDeviceMem(devBlk, devIdx);
+ 
+               }
+            }
+         }      
+      }
+   }
+
+   std::cout << "\nGPU Pair Contenion Tests: " << std::endl;
+   
+   // GPU Pair PCIe Contention w/ Multiple Host Threads/Sockets
+   if (params.nDevices >= 2) {
+      
+      for (int socketIdx = 0; socketIdx < numSocketTests; ++socketIdx) {
+         
+         for (int devIdx1 = 0; devIdx1 < params.nDevices; ++devIdx1) {
+            
+            for (int devIdx2 = devIdx1 + 1; devIdx2 < params.nDevices; ++devIdx2) {
+               
+               for (int dirIdx = 0; dirIdx < numDirs; ++dirIdx) {
+                 
+                  maxThreads = min(topo.NumSockets() * topo.NumCores(), topo.NumSockets() * 8);
+                  
+                  std::cout << "Test " << testNum++ << "\t\tDevice 1: " << devIdx1 << " Device 2: " << devIdx2;
+                  std::cout << " Socket: " << socketIdx << " Direction: " << dirIdx << " Max Threads: " << maxThreads << std::endl; 
+
+                  for (int numThreads = topo.NumSockets(); numThreads <= maxThreads; numThreads += topo.NumSockets()) {
+                     
+                     omp_set_num_threads(numThreads);
+                     #pragma omp parallel
+                     {
+                        // Get local thread ID
+                        int threadIdx = omp_get_thread_num();
+                        void * hostBlk, * devBlk;
+                        int socket = socketIdx;
+                        int core = threadIdx % topo.NumCoresPerSocket();
+                        int dir = dirIdx;
+
+                        if (dirIdx == 2)
+                           dir = threadIdx % 2;
+
+                        if (socketIdx == topo.NumSockets()) {
+                           socket = (threadIdx / 2) % topo.NumSockets(); 
+                           core =  2 * (threadIdx / (2 * topo.NumSockets())) + threadIdx % 2;
+                           if (dirIdx == 2) {
+                              dir = (threadIdx / 2) % 2;
+                              socket = (threadIdx / 4) % topo.NumSockets();                        
+                              core = 4 * (threadIdx / (4 * topo.NumSockets())) + threadIdx % 4;
+                           }
+                        }
+
+                        int device = devIdx2;
+                        if (threadIdx % 2 ==  0)
+                           device = devIdx1;
+                        
+                        topo.SetActiveDevice(device);
+                        topo.PinCoreBySocket(socket, core);
+                        //topo.PinNode(socket);
+                        
+                        // Allocate Host/Device Memory
+                        devBlk = topo.AllocDeviceMem(device, blockSize);
+                        hostBlk = topo.AllocPinMemByNode(socket, blockSize);
+                       
+                        // Initialize Host/Device Memory 
+                        topo.SetHostMem(hostBlk, 1, blockSize);
+                        topo.SetDeviceMem(devBlk, 0, blockSize, device);
+            
+                        // Initialize local thread timer with CUDA event timing and wait for all threads to finish allocation steps
+                        Timer threadTimer(false); 
+                        #pragma omp barrier
+                  
+                        threadTimer.StartTimer();
+          
+                        for (register int repCount = 0; repCount < params.numContRepeats; repCount++) {
+                           if (dir == 0)
+                              MemCopyOp(hostBlk, devBlk, blockSize, DEVICE_HOST_PINNED_COPY, 0, 0, threadTimer.stream);
+                           else
+                              MemCopyOp(devBlk, hostBlk, blockSize, HOST_PINNED_DEVICE_COPY, 0, 0, threadTimer.stream);
+                        }
+                        
+                        threadTimer.StopTimer();     
+                        
+                        topo.FreePinMem(hostBlk, blockSize);
+                        topo.FreeDeviceMem(devBlk, device);
+                        
+                        // calculate thread local bandwidth
+                        double time = (double) threadTimer.ElapsedTime() / (double) params.numContRepeats;
+                        double bandwidth = ((double) blockSize / (double) pow(2.0, 30.0)) / (time * 1.0E-6);
+                        
+                        threadBW[threadIdx] = bandwidth; 
+
+                        // Wait for all threads to complete transfers and add thread bandwidths to array
+                        #pragma omp barrier
+ 
+                        // Calculate aggregate bandwidth and push thread bandwidths to data vector
+                        #pragma omp single
+                        {  
+                           double aggBW = 0;
+                           for (int i = 0; i < numThreads; ++i)
+                              aggBW += threadBW[i];
+                           
+                           std::cout << numThreads << ": " << aggBW << std::endl;
+
+                           std::vector<float> testData;
+                           testData.push_back(aggBW);
+                              
+                           for (int i = 0; i < numThreads; ++i)
+                              testData.push_back(threadBW[i]);
+                           data.push_back(testData);
+                       
+                        }        
+                     }
+                  }
+               }
+            }
+         }
+      }   
+  
+      std::cout << "\nSingle Host Multiple Device PCIe Contention Tests: " << std::endl;
+    
+      // Single Host PCIe/Mem Contention
+      for (int socketIdx = 0; socketIdx < topo.NumSockets(); ++socketIdx) {
+         
+         for (int dirIdx = 0; dirIdx < numDirs; ++dirIdx) {
+            
+            maxThreads = min(topo.NumGPUs() * 4, topo.NumCoresPerSocket());
+
+            std::cout << "Test " << testNum++ << "\t\tSocket: " << socketIdx;
+            std::cout << " Direction: " << dirIdx << " Max Threads: " << maxThreads << std::endl; 
+
+            for (int numThreads = 1; numThreads <= maxThreads; ++numThreads) {
+       
+               omp_set_num_threads(numThreads);
+               #pragma omp parallel
+               {
+                  // Get local thread ID
+                  int threadIdx = omp_get_thread_num();
+                  void * hostBlk, * devBlk;
+                  
+                  int node = socketIdx;
+                  int core = threadIdx % topo.NumCoresPerSocket();
+                  int dir = dirIdx % 2;
+                  if (dirIdx == 2)
+                     dir = (threadIdx / topo.NumGPUs()) % 2;
+                  int devIdx = threadIdx % topo.NumGPUs();
+                  
+                  topo.SetActiveDevice(devIdx);
+                  topo.PinCoreBySocket(node, core);
+                  //topo.PinNode(node);
+                  
+                  // Allocate Device Memory
+                  devBlk = topo.AllocDeviceMem(devIdx, blockSize);
+                  hostBlk = topo.AllocPinMemByNode(node, blockSize);
+
+                  // Initialize Device Memory
+                  topo.SetHostMem(hostBlk, 1, blockSize);
+                  topo.SetDeviceMem(devBlk, 0, blockSize, devIdx);
+                 
+                  // Initialize timer and wait for all threads to finish allocation steps 
+                  Timer threadTimer(false); 
+                  #pragma omp barrier
+            
+                  threadTimer.StartTimer();
+    
+                  for (register int repCount = 0; repCount < params.numContRepeats; repCount++) {
+                     if (dir == 0)
+                        MemCopyOp(devBlk, hostBlk, blockSize, HOST_PINNED_DEVICE_COPY, 0, 0, threadTimer.stream);
+                     else 
+                        MemCopyOp(hostBlk, devBlk, blockSize, DEVICE_HOST_PINNED_COPY, 0, 0, threadTimer.stream);
+                  }
+                  
+                  threadTimer.StopTimer();     
+                 
+                  // calculate thread local bandwidth
+                  double time = (double) threadTimer.ElapsedTime() / (double) params.numContRepeats;
+                  double bandwidth = ((double) blockSize / (double) pow(2.0, 30.0)) / (time * 1.0E-6);
+                  
+                  threadBW[threadIdx] = bandwidth; 
+
+                  // Wait for all threads to complete transfers and add thread bandwidths to array
+                  #pragma omp barrier
+
+                  // Calculate aggregate bandwidth and push thread bandwidths to data vector
+                  #pragma omp single
+                  {  
+                     double aggBW = 0;
+                     for (int i = 0; i < numThreads; ++i)
+                        aggBW += threadBW[i];
+
+                     std::cout << numThreads << ": " << aggBW << std::endl;
+                     
+                     std::vector<float> testData;
+                     testData.push_back(aggBW);
+                        
+                     for (int i = 0; i < numThreads; ++i)
+                        testData.push_back(threadBW[i]);
+                     data.push_back(testData);
+                  } 
+
+                  topo.FreePinMem(hostBlk, blockSize);
+                  topo.FreeDeviceMem(devBlk, devIdx);
+               }
+            }
+         }      
+      }
+   }
+   
    // Output results
-   std::string dataFileName = "./results/contention/" + params.runTag + "_contention_pcie_.csv";
+   std::string dataFileName = "./results/contention/pcie/" + params.runTag + "_pcie_contention_.csv";
    std::ofstream resultsFile(dataFileName.c_str());
 
-   //TODO Confirm these are correct header values
+   // Print results header values
    resultsFile << topo.NumSockets() << ","; 
-   resultsFile << params.numContMemTypes << ","; 
-   resultsFile << maxThreads << ","; 
-   if (params.testContRange) 
-      resultsFile << "t" << std::endl;
-   else  
-      resultsFile << "f" << std::endl;
-   //PrintResults(resultsFile, blockSteps, data);
-}
+   resultsFile << params.nDevices; 
+   
+   for (int i = 0; i < params.nDevices; i++)
+      resultsFile << "," << topo.GetDeviceName(i);
+   
+   resultsFile << std::endl;
+   resultsFile << min(8, topo.NumCoresPerSocket()) << ",";
+   resultsFile << min(topo.NumSockets() * 8, topo.NumCores()) << std::endl;
+   resultsFile << min(topo.NumSockets() * topo.NumCores(), topo.NumSockets() * 8) << std::endl;
+   resultsFile << min(topo.NumGPUs() * 4, topo.NumCoresPerSocket()) << std::endl;
 
-void ContentionSubTestP2P(BenchParams &params, SystemTopo &topo) {
-   int maxThreads = 1;
-
-   std::string dataFileName = "./results/contention/" + params.runTag + "_contention_p2p_.csv";
-   std::ofstream resultsFile(dataFileName.c_str());
-
-   //TODO Confirm these are correct header values
-   resultsFile << topo.NumSockets() << ","; 
-   resultsFile << params.numContMemTypes << ","; 
-   resultsFile << maxThreads << ","; 
-   if (params.testContRange) 
-      resultsFile << "t" << std::endl;
-   else  
-      resultsFile << "f" << std::endl;
-   //PrintResults(resultsFile, blockSteps, data);
+   // Print benchmark results to .csv file
+   PrintResults(resultsFile, data);
 }
 
 void HHBurstTransferTest(BenchParams &params, SystemTopo &topo) {
@@ -931,7 +1278,8 @@ void HHBurstTransferTest(BenchParams &params, SystemTopo &topo) {
 
    std::vector<std::vector<float> > burstData;
 
-   BurstHHBandwidthRun(params, topo, burstData); 
+   BurstHHBandwidthRun(params, topo, burstData);
+ 
    PrintHHBurstMatrix(params, topo, burstData);
 }
 
@@ -957,6 +1305,7 @@ void P2PBurstTransferTest(BenchParams &params, SystemTopo &topo) {
 }
 
 void BurstHHBandwidthRun(BenchParams &params, SystemTopo &topo, std::vector<std::vector<float> > &burstData) { 
+
    long long blockSize = params.burstBlockSize;
    int numNodes = topo.NumNodes();
    int numSockets = params.nSockets;
@@ -966,9 +1315,10 @@ void BurstHHBandwidthRun(BenchParams &params, SystemTopo &topo, std::vector<std:
       numPatterns = NUM_PATTERNS;
 
    burstData.resize(numPatterns * numSockets);
-   double convConst = (double) blockSize / (double) pow(2.0, 30.0) * (double) 1.0e6; 
+   double convConst = (double) blockSize / (double) pow(2.0, 30.0) * (double) 1.0E6; 
 
    for (int socketIdx = 0; socketIdx < numSockets; socketIdx++) {
+
       topo.PinSocket(socketIdx);
       
       for (int patternNum = 0; patternNum < numPatterns; patternNum ++) {
@@ -982,21 +1332,28 @@ void BurstHHBandwidthRun(BenchParams &params, SystemTopo &topo, std::vector<std:
          for (int srcIdx = 0; srcIdx < numNodes; srcIdx++) { 
 
             for (int destIdx = 0; destIdx < numNodes; destIdx++) { 
-               // HtoH Ranged Transfer - Pageable Memory
                int rowIdx = socketIdx * numPatterns + patternNum;
+
+               // HtoH Ranged Transfer - Pageable Memory
                burstData[rowIdx].push_back(convConst / BurstMemCopy(topo, blockSize, HOST_HOST_COPY, destIdx, srcIdx, params.numStepRepeats, pattern));        
               
                if (params.testAllMemTypes) {
+
                   // HtoH Ranged Transfer - Pinned Memory Src
                   burstData[rowIdx].push_back(convConst / BurstMemCopy(topo, blockSize, HOST_PINNED_HOST_COPY, destIdx, srcIdx, params.numStepRepeats, pattern)); 
+
                   // HtoH Ranged Transfer - Pinned Memory Dest
                   burstData[rowIdx].push_back(convConst / BurstMemCopy(topo, blockSize, HOST_HOST_PINNED_COPY, destIdx, srcIdx, params.numStepRepeats, pattern));        
+
                   // HtoH Ranged Transfer - Pinned Memory Both
                   burstData[rowIdx].push_back(convConst / BurstMemCopy(topo, blockSize, HOST_HOST_COPY_PINNED, destIdx, srcIdx, params.numStepRepeats, pattern));
+
                   // HtoH Ranged Transfer - WC Memory Src
                   //burstData[rowIdx].push_back(convConst / BurstMemCopy(topo, blockSize, HOST_COMBINED_HOST_COPY, destIdx, srcIdx, params.numStepRepeats, pattern));        
+
                   // HtoH Ranged Transfer - WC Memory Dest
                   //burstData[rowIdx].push_back(convConst / BurstMemCopy(topo, blockSize, HOST_HOST_COMBINED_COPY, destIdx, srcIdx, params.numStepRepeats, pattern));
+
                }       
             }
          }
@@ -1006,7 +1363,7 @@ void BurstHHBandwidthRun(BenchParams &params, SystemTopo &topo, std::vector<std:
 
 void BurstHDBandwidthRun(BenchParams &params, SystemTopo &topo, std::vector<std::vector<float> > &burstData) { 
    long long blockSize = params.burstBlockSize;
-   double convConst = (double) blockSize / (double) pow(2.0, 30.0) * (double) 1.0e6; 
+   double convConst = (double) blockSize / (double) pow(2.0, 30.0) * (double) 1.0E6; 
 
    int numSockets = params.nSockets;
    int numPatterns = 1;
@@ -1014,6 +1371,7 @@ void BurstHDBandwidthRun(BenchParams &params, SystemTopo &topo, std::vector<std:
       numPatterns = NUM_PATTERNS;
    
    burstData.resize(numPatterns * numSockets);
+   
    for (int socketIdx = 0; socketIdx < numSockets; socketIdx++) {
       topo.PinSocket(socketIdx);
       
@@ -1029,8 +1387,9 @@ void BurstHDBandwidthRun(BenchParams &params, SystemTopo &topo, std::vector<std:
 
             //Host-Device Memory Transfers
             for (int destIdx = 0; destIdx < params.nDevices; destIdx++) {
-               topo.SetActiveDevice(destIdx); 
                int rowIdx = socketIdx * numPatterns + patternNum; 
+               
+               topo.SetActiveDevice(destIdx); 
 
                // HtoD Ranged Transfer - Pageable Memory
                burstData[rowIdx].push_back( convConst / BurstMemCopy(topo, blockSize, HOST_DEVICE_COPY, destIdx, srcIdx, params.numStepRepeats, pattern));        
@@ -1039,14 +1398,19 @@ void BurstHDBandwidthRun(BenchParams &params, SystemTopo &topo, std::vector<std:
                burstData[rowIdx].push_back( convConst / BurstMemCopy(topo, blockSize, DEVICE_HOST_COPY, srcIdx, destIdx, params.numStepRepeats, pattern));        
                
                if ( params.testAllMemTypes) {      
+
                   // HtoD Ranged Transfer - Pinned Memory
                   burstData[rowIdx].push_back( convConst / BurstMemCopy(topo, blockSize, HOST_PINNED_DEVICE_COPY, destIdx, srcIdx, params.numStepRepeats, pattern));
+
                   // DtoH Ranged Transfer - Pinned Memory
                   burstData[rowIdx].push_back( convConst / BurstMemCopy(topo, blockSize, DEVICE_HOST_PINNED_COPY, srcIdx, destIdx, params.numStepRepeats, pattern)); 
+
                   // HtoD Ranged Transfer - WC Memory
                   //burstData[rowIdx].push_back( convConst / BurstMemCopy(topo, blockSize, HOST_COMBINED_DEVICE_COPY, destIdx, srcIdx, params.numStepRepeats, pattern));
+
                   // DtoH Ranged Transfer - WC Memory
                   //burstData[rowIdx].push_back( convConst / BurstMemCopy(topo, blockSize, DEVICE_HOST_COMBINED_COPY, srcIdx, destIdx, params.numStepRepeats, pattern)); 
+
                }
             }
          }
@@ -1055,18 +1419,24 @@ void BurstHDBandwidthRun(BenchParams &params, SystemTopo &topo, std::vector<std:
 }
 
 void BurstP2PBandwidthRun(BenchParams &params, SystemTopo &topo, std::vector<std::vector<float> > &burstData) { 
+
    long long blockSize = params.burstBlockSize;
-   double convConst = (double) blockSize / (double) pow(2.0, 30.0) * (double) 1.0e-6; 
+   double convConst = (double) blockSize / (double) pow(2.0, 30.0) * (double) 1.0E-6; 
    
    burstData.resize(topo.NumGPUs() * params.nSockets);
+   
    for (int socketIdx = 0; socketIdx < params.nSockets; socketIdx++) {
+
       topo.PinSocket(socketIdx);
  
       for (int srcIdx = 0; srcIdx < topo.NumGPUs(); srcIdx++) { 
          //topo.SetActiveDevice(srcIdx); 
+         
          for (int destIdx = 0; destIdx < topo.NumGPUs(); destIdx++) { 
+            
             // DtoD Burst Transfer - No Peer, No UVA
             burstData[socketIdx * topo.NumGPUs() + srcIdx].push_back(convConst / BurstMemCopy(topo, blockSize, DEVICE_DEVICE_COPY, destIdx, srcIdx, params.numStepRepeats)); 
+            
             // DtoD Burst Transfer - Peer, No UVA
             if (topo.DeviceGroupCanP2P(srcIdx, destIdx)) {
                topo.DeviceGroupSetP2P(srcIdx, destIdx, true);
@@ -1075,6 +1445,7 @@ void BurstP2PBandwidthRun(BenchParams &params, SystemTopo &topo, std::vector<std
             }
 
             if (topo.DeviceGroupUVA(srcIdx, destIdx)) {  
+            
                // DtoD Burst Transfer - No Peer, UVA
                burstData[socketIdx * topo.NumGPUs() + srcIdx].push_back(convConst / BurstMemCopy(topo, blockSize, COPY_UVA, destIdx, srcIdx, params.numStepRepeats)); 
                
@@ -1091,19 +1462,22 @@ void BurstP2PBandwidthRun(BenchParams &params, SystemTopo &topo, std::vector<std
 }
 
 void MemCopyRun(SystemTopo &topo, std::vector<long long> &blockSteps, std::vector<std::vector<float> > &data, MEM_OP copyType, MEM_PATTERN pattern, int destIdx, int srcIdx, int numCopies) {
+
    void *destPtr, *srcPtr; 
    long long totalSteps = blockSteps.size();
    long long blockSize = blockSteps[totalSteps - 1];
 
    AllocMemBlocks(topo, &destPtr, &srcPtr, blockSize, copyType, destIdx, srcIdx);
    SetMemBlocks(topo, destPtr, srcPtr, blockSize, copyType, destIdx, srcIdx, 0);
-   for (long long stepNum = 0; stepNum < totalSteps; stepNum++) {
+
+   for (long long stepNum = 0; stepNum < totalSteps; stepNum++)
       data[stepNum].push_back(TimedMemCopyStep(destPtr, srcPtr, blockSteps[stepNum], blockSize, numCopies, copyType, pattern, destIdx, srcIdx));
-   }
+
    FreeMemBlocks(topo, destPtr, srcPtr, blockSize, copyType, destIdx, srcIdx);
 }
 
 float BurstMemCopy(SystemTopo &topo, long long blockSize, MEM_OP copyType, int destIdx, int srcIdx, int numSteps, MEM_PATTERN pattern) {  
+
    float elapsedTime = 0;
    void *destPtr, *srcPtr;
 
@@ -1118,6 +1492,7 @@ float BurstMemCopy(SystemTopo &topo, long long blockSize, MEM_OP copyType, int d
 }
 
 float TimedMemCopyStep(void * destPtr, void *srcPtr, long long stepSize, long long blockSize, int numCopiesPerStep, MEM_OP copyType, MEM_PATTERN patternType, int destIdx, int srcIdx) {
+
    long long offset = 0;
    long long maxFrameSize = 100000000;
    long long gap = 100000000;
@@ -1125,6 +1500,7 @@ float TimedMemCopyStep(void * destPtr, void *srcPtr, long long stepSize, long lo
    bool usingPattern = false;
    
    if (stepSize < maxFrameSize) {
+
       switch (patternType) {
          case LINEAR_INC:
             usingPattern = true;
@@ -1149,6 +1525,7 @@ float TimedMemCopyStep(void * destPtr, void *srcPtr, long long stepSize, long lo
    }
    
    CopyTimer.StartTimer();
+
    for (int copyIdx = 0; copyIdx < numCopiesPerStep; copyIdx++) {
       char * dest = ((char *) destPtr) + offset;
       char * src = ((char *) srcPtr) + offset;
@@ -1177,6 +1554,7 @@ float TimedMemCopyStep(void * destPtr, void *srcPtr, long long stepSize, long lo
          }
       }
    }
+
    CopyTimer.StopTimer();
    time += CopyTimer.ElapsedTime();
 
@@ -1184,6 +1562,7 @@ float TimedMemCopyStep(void * destPtr, void *srcPtr, long long stepSize, long lo
 }
 
 void SetMemBlock(SystemTopo &topo, void *blkPtr, long long numBytes, long long value, MEM_TYPE memType, int devIdx) {
+
    switch (memType) {
       case PAGE:
       case PINNED:
@@ -1202,6 +1581,7 @@ void SetMemBlock(SystemTopo &topo, void *blkPtr, long long numBytes, long long v
 }
 
 void SetMemBlocks(SystemTopo &topo, void *destPtr, void *srcPtr, long long numBytes, MEM_OP copyType, int destIdx, int srcIdx, int value) {
+
    switch (copyType) {
       case HOST_HOST_COPY: 
       case HOST_PINNED_HOST_COPY: 
@@ -1238,6 +1618,7 @@ void SetMemBlocks(SystemTopo &topo, void *destPtr, void *srcPtr, long long numBy
 }
 
 void AllocMemBlock(SystemTopo &topo, void **blkPtr, long long numBytes, MEM_TYPE blockType, int srcIdx, int extIdx) {
+
    switch (blockType) {
       case PAGE:
          *blkPtr = topo.AllocMemByNode(srcIdx, numBytes);
@@ -1264,6 +1645,7 @@ void AllocMemBlock(SystemTopo &topo, void **blkPtr, long long numBytes, MEM_TYPE
 }
 
 void AllocMemBlocks(SystemTopo &topo, void **destPtr, void **srcPtr, long  long numBytes, MEM_OP copyType, int destIdx, int srcIdx) {
+
    switch (copyType) {
       case HOST_HOST_COPY: 
          *srcPtr = topo.AllocMemByNode(srcIdx, numBytes);
@@ -1330,6 +1712,7 @@ void AllocMemBlocks(SystemTopo &topo, void **destPtr, void **srcPtr, long  long 
 }
 
 void MemCopyOp(void * destPtr, void *srcPtr, long long stepSize, MEM_OP copyType, int destIdx, int srcIdx, cudaStream_t stream) {
+
    switch (copyType) {
       case HOST_HOST_COPY: 
          memcpy(destPtr, srcPtr, stepSize);
@@ -1372,6 +1755,7 @@ void MemCopyOp(void * destPtr, void *srcPtr, long long stepSize, MEM_OP copyType
 }
 
 void FreeMemBlocks(SystemTopo &topo, void* destPtr, void *srcPtr, long long numBytes, MEM_OP copyType, int destIdx, int srcIdx) {
+
    switch (copyType) {
       case HOST_HOST_COPY: 
          topo.FreeHostMem(destPtr, numBytes);
@@ -1438,6 +1822,7 @@ void FreeMemBlocks(SystemTopo &topo, void* destPtr, void *srcPtr, long long numB
 }
 
 float TimedMemManageOp(void **MemBlk, long long NumBytes, MEM_OP TimedOp) {
+
    Timer OpTimer(true); 
    OpTimer.StartTimer();
  
@@ -1489,6 +1874,7 @@ float TimedMemManageOp(void **MemBlk, long long NumBytes, MEM_OP TimedOp) {
 }
 
 int CalcRunSteps(std::vector<long long> &blockSteps, long long startStep, long long stopStep, long long numSteps) {
+
    int magStart = max((int) log10(startStep), 1);
    int magStop = log10(stopStep);
    long long totalSteps = (magStop - magStart) * numSteps;
@@ -1504,19 +1890,17 @@ int CalcRunSteps(std::vector<long long> &blockSteps, long long startStep, long l
       totalSteps = 1;
    }
 
-   while (step < stop) {
+   while (pow(10, exp) < stopStep) {
       step = pow(10, exp);
       blockSteps.push_back(step); 
       exp += expStep;
    }
 
-   //for (int i = 0; i < blockSteps.size(); ++i) 
-   //   std::cout << blockSteps[i] << std::endl;
-
    return totalSteps;
 }
 
 void PrintP2PBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std::vector<float> > &burstData) {
+
    long long blockSize = params.burstBlockSize;
    int numSockets = params.nSockets;
    std::vector<int> deviceIdxs;
@@ -1561,9 +1945,9 @@ void PrintP2PBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std:
       std::cout << "|" << std::endl;
 
 
-      std::cout << std::setprecision(2) << std::fixed;          
-      
+      std::cout << std::setprecision(2) << std::fixed;      
       std::fill(deviceIdxs.begin(), deviceIdxs.end(), 0);
+
       for (int i = 0; i < matrixHeight; ++i) {
 
          std::cout << "|\t\t|  " << i  / 4 <<  "\t|";
@@ -1578,11 +1962,11 @@ void PrintP2PBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std:
          }
          
          if (i % 4 == 0) {
-            //deviceIdxs.resize(matrixWidth, 0);
-            //deviceIdxs.assign(deviceIdxs.begin(), deviceIdxs.end(), 0);
             std::fill(deviceIdxs.begin(), deviceIdxs.end(), 0);
          }
+
          dataIdx = 0;
+
          for (int j = 0; j < matrixWidth; ++j) {
             if (i % 4 == 0) {
                std::cout << "      " << burstData[socketIdx * matrixWidth + i / 4][dataIdx + deviceIdxs[j]] << "\t|";
@@ -1613,27 +1997,34 @@ void PrintP2PBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std:
          std::cout << std::endl;
          
          if (i + 1 < matrixHeight && (i + 1 == ((float) matrixHeight / 2.0))) {
+
             std::cout << "|   Source\t|-----------------------";
             for (int i = 0; i < matrixWidth; i++)
                std::cout << "|---------------";
             std::cout << "|" << std::endl;
+
          } else if (i + 1 < matrixHeight && (i + 1) % 4  ==  0) {
+
             std::cout << "|\t\t|-----------------------";
             for (int i = 0; i < matrixWidth; i++)
                std::cout << "|---------------";
             std::cout << "|" << std::endl;
+
          }
       }
-      std::cout << std::setprecision(4) << std::fixed;          
-      
+
+      std::cout << std::setprecision(4) << std::fixed;                
       std::cout << "-----------------------------------------"; 
+
       for (int i = 0; i < matrixWidth; i++)
          std::cout << "----------------";
+
       std::cout << std::endl;
    }
 }
 
 void PrintHDBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std::vector<float> > &burstData) {
+
    long long blockSize = params.burstBlockSize;
    int numSockets = params.nSockets;
    
@@ -1649,6 +2040,7 @@ void PrintHDBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std::
    std::cout << "Num Patterns: " << numPatterns << std::endl;
 
    std::cout << std::setprecision(2) << std::fixed;          
+
    for (int socketIdx = 0; socketIdx < numSockets; socketIdx++) {
       std::cout << "\nInitiating Socket: " << socketIdx << std::endl;
       
@@ -1714,6 +2106,7 @@ void PrintHDBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std::
 
             std::cout << "|\t\t|  " << i <<  "\t|";
             int rowIdx = socketIdx * numPatterns + patternNum;
+
             for (int j = 0; j < matrixWidth; ++j) {
                   int colIdx = j * topo.NumGPUs() * 4 + i * 4;
                   std::cout << " " << burstData[rowIdx][colIdx + 0] << "\t|";
@@ -1724,15 +2117,19 @@ void PrintHDBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std::
             std::cout << std::endl;
             
             if (i + 1 < matrixHeight && (i + 1 == ((float) matrixHeight / 2.0))) {
+
                std::cout << "|     Device\t|-------";
                for (int i = 0; i < matrixWidth * 2; i++)
                   std::cout << "----------------";
                std::cout << "|" << std::endl;
+
             } else if (i + 1 < matrixHeight) {
+
                std::cout << "|\t\t|-------";
                for (int i = 0; i < matrixWidth * 2; i++)
                   std::cout << "----------------";
                std::cout << "|" << std::endl;
+
             }
          }
          std::cout << std::setprecision(4) << std::fixed;          
@@ -1746,6 +2143,7 @@ void PrintHDBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std::
 }
 
 void PrintHHBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std::vector<float> > &burstData) {
+
    long long blockSize = params.burstBlockSize;
    int numSockets = params.nSockets;
 
@@ -1753,7 +2151,6 @@ void PrintHHBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std::
    if (params.runPatternsHH)
       numPatterns = NUM_PATTERNS;
    int nodeWidth = pow(HOST_MEM_TYPES * topo.NumNodes(), 2) / topo.NumNodes();
-
    int matrixWidth = HOST_MEM_TYPES * topo.NumNodes();
    int matrixHeight = HOST_MEM_TYPES * topo.NumNodes();
    
@@ -1762,6 +2159,7 @@ void PrintHHBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std::
    std::cout << "Num Patterns: " << numPatterns << std::endl;
 
    std::cout << std::setprecision(2) << std::fixed;          
+
    for (int socketIdx = 0; socketIdx < numSockets; socketIdx++) {
       std::cout << "\nInitiating Socket: " << socketIdx << std::endl;
       
@@ -1816,6 +2214,7 @@ void PrintHHBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std::
          std::cout << "|" << std::endl;
         
          for (int i = 0; i < matrixHeight; ++i) {
+
             std::cout << "|\t\t|\t|";//<< std::endl;
             for (int j = 0; j < matrixWidth + 1; ++j)
                std::cout << "\t|\t";
@@ -1839,6 +2238,7 @@ void PrintHHBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std::
             std::cout << std::endl;
             
             if (i + 1 < matrixHeight && (i + 1 != ((float) matrixHeight / 2.0))) {
+
                std::cout << "|\t\t|-------|-------|";
                for (int i = 0; i < matrixWidth; i++) {
                   if (i + 1 < matrixWidth)
@@ -1847,6 +2247,7 @@ void PrintHHBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std::
                      std::cout << "---------------";
                }
                std::cout << "|" << std::endl; 
+
             } else if (i + 1 < matrixHeight) {
                std::cout << "|    Source     |-------|-------|";
                for (int i = 0; i < matrixWidth; i++) {
@@ -1856,6 +2257,7 @@ void PrintHHBurstMatrix(BenchParams &params, SystemTopo &topo, std::vector<std::
                      std::cout << "---------------";
                }
                std::cout << "|" << std::endl; 
+
             }
          }
 
@@ -1893,6 +2295,7 @@ void PrintRangedHeader(BenchParams &params, SystemTopo &topo, std::ofstream &fil
 
          fileStream << std::endl;
          break;
+
       case HD:
          fileStream << topo.NumSockets() << ",";
          fileStream << topo.NumNodes() << ",";
@@ -1919,6 +2322,7 @@ void PrintRangedHeader(BenchParams &params, SystemTopo &topo, std::ofstream &fil
          
          fileStream << std::endl;
          break;
+
       case P2P:
          fileStream << topo.NumSockets() << ",";
          fileStream << params.nDevices;
@@ -1936,8 +2340,8 @@ void PrintRangedHeader(BenchParams &params, SystemTopo &topo, std::ofstream &fil
          /*for (int i = 0; i < params.nDevices; i++) {
             fileStream << "," << std::boolalpha << topo.DeviceUVA(i) << std::noboolalpha;
          }*/
-         
-         fileStream << std::endl;
+        
+         fileStream << std::endl; 
          peerGroups = topo.GetPeerGroups();
          for (int i = 0; i < peerGroups.size(); i++) {
             for (int j = 0; j < peerGroups[i].size(); j++) {
@@ -1949,9 +2353,35 @@ void PrintRangedHeader(BenchParams &params, SystemTopo &topo, std::ofstream &fil
             fileStream << std::endl;
          }
          break;
+
       default:
          std::cout << "Error: unrecognized ranged transfer test type!" << std::endl; 
          break;
+
+   }
+}
+
+void PrintResults(std::ofstream &outFile, std::vector<std::vector<float> > &results) {
+   
+   if (!outFile.is_open()) {
+      std::cout << "Failed to open file to print results" << std::endl;
+      return;
+   }
+
+   std::vector<std::vector<float> >::iterator iter_o;
+   std::vector<float>::iterator iter_i;
+   
+   for (iter_o = results.begin(); iter_o != results.end(); ++iter_o) {
+
+      for (iter_i = (*iter_o).begin(); iter_i != (*iter_o).end(); ++iter_i) {
+         outFile << std::fixed << *iter_i;
+
+         if (iter_i + 1 != (*iter_o).end())
+            outFile << ",";
+
+      }
+
+      outFile << std::endl;
 
    }
 }
@@ -1962,18 +2392,24 @@ void PrintResults(std::ofstream &outFile, std::vector<long long> &steps, std::ve
       std::cout << "Failed to open file to print results" << std::endl;
       return;
    }
+
    std::vector<std::vector<float> >::iterator iter_o;
    std::vector<float>::iterator iter_i;
    std::vector<long long>::iterator iter_l = steps.begin();
    
    for (iter_o = results.begin(); iter_o != results.end(); ++iter_o) {
       outFile << std::fixed << *iter_l++ << ",";
+
       for (iter_i = (*iter_o).begin(); iter_i != (*iter_o).end(); ++iter_i) {
          outFile << std::fixed << *iter_i;
+
          if (iter_i + 1 != (*iter_o).end())
             outFile << ",";
+
       }
+
       outFile << std::endl;
+
    }
 }
 

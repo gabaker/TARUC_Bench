@@ -1,20 +1,13 @@
-//cuda headers and helper functions
+// CUDA headers and helper functions
 #include <cuda_runtime.h>
 #include <cuda.h>
 #include "helper_cuda.h"
-#include "nvml.h"
 
 // C/C++ standard includes
 #include <iostream>
-#include <stdio.h>
-#include <string>
-#include <vector>
 #include <string>
 #include <fstream>
-#include <iostream>
-#include <ios>
 #include <vector>
-#include <unistd.h>
 #include <sstream>
 #include <iomanip>
 #include <algorithm>
@@ -26,54 +19,52 @@
 #include <sched.h>
 #include <hwloc.h>
 
-// Time conversions for varying timing functions that are compatible 
-// with cuda, c++11 or older C++ versions
-#define MILLI_TO_MICRO ((double) 1.0 / (double) 1e3f)
-#define MICRO_TO_MILLI ((double) 1e3f)
-#define NANO_TO_MILLI ((double) 1.0 / (double) 1e6f)
-#define NANO_TO_MICRO ((double) 1.0 / (double) 1e3f)
+// Memory block size conversions
+#define BYTES_TO_MEGA ((double) pow(2.0, 20))
+
+// Test parameter counts
 #define NUM_PATTERNS 3
 #define HOST_MEM_TYPES 3
-#define BYTES_TO_MEGA ((double) pow(2.0, 20))
 
 // Memory access patterns to test help adjust small PCI transfer latency for possible Host 
 // caching effects with repeated transfers of memory blocks
 typedef enum {
-   REPEATED,
-   LINEAR_INC,
-   LINEAR_DEC,
+   REPEATED,      // Same initial address for each transfer
+   LINEAR_INC,    // Linearly increasing address (skip a block)
+   LINEAR_DEC,    // Linearly decreasing address (skip a block)
 } MEM_PATTERN;
 
 typedef enum {
-   HD,
-   HH,
-   P2P
+   HD,            // Host-Device Transfer
+   HH,            // Host-Host Transfer
+   P2P            // Device-Device Transfer
 } BW_RANGED_TYPE;
 
+// Memory types for host and device memory
 typedef enum {
-   PAGE,
-   PINNED,
-   WRITE_COMBINED,
-   MANAGED,
-   MAPPED,
-   DEVICE
+   PAGE,                // Pageable host memory
+   PINNED,              // Pinned (non-pageable) host memory
+   WRITE_COMBINED,      // Write combined host memory
+   MANAGED,             // CUDA managed memory block
+   MAPPED,              // CUDA host-device mapped memory block
+   DEVICE               // CUDA device memory
 } MEM_TYPE;
 
-// Memory allocation types to be used in benchmark suppost functions to adjust behavior of 
+// Memory types to be used in micro-benchmark support functions to adjust behavior of 
 // test run depending on benchmark parameters and cases being studied
 typedef enum {
    HOST_MALLOC,               // Host pageable memory allocation, single memory block
    HOST_PINNED_MALLOC,        // Host pinned memory allocation, single memory block
-   HOST_COMBINED_MALLOC,
-   MANAGED_MALLOC,
-   MAPPED_MALLOC,
+   HOST_COMBINED_MALLOC,      // Host write-combined memory allocation, single memory block
+   MANAGED_MALLOC,            // CUDA managed memory allocation, single memory block
+   MAPPED_MALLOC,             // CUDA mapped memory allocation, single memory block
    DEVICE_MALLOC,             // Device memory allocation, single memory block
 
    HOST_FREE,                 // Host pageable memory deallocation, single memory block
    HOST_PINNED_FREE,          // Host pinned memory deallocation, single memory block
-   HOST_COMBINED_FREE,
-   MANAGED_FREE,
-   MAPPED_FREE,
+   HOST_COMBINED_FREE,        // Host write-combined memory deallocation, single memory block
+   MANAGED_FREE,              // CUDA managed memory deallocation, single memory block
+   MAPPED_FREE,               // CUDA mapped memory deallocation, single memory block
    DEVICE_FREE,               // Device memory deallocation, single memory block
 
    HOST_HOST_COPY,            // Host-To-Host Copy, pageable memory
@@ -86,27 +77,15 @@ typedef enum {
    HOST_PINNED_DEVICE_COPY,   // Host-To-Device copy, pinned host memory
    DEVICE_HOST_PINNED_COPY,   // Device-To-Host copy, pinned host memory
 
-   HOST_COMBINED_HOST_COPY,
-   HOST_HOST_COMBINED_COPY,
-   HOST_HOST_COPY_COMBINED,
-   HOST_COMBINED_DEVICE_COPY,
-   DEVICE_HOST_COMBINED_COPY,
+   HOST_COMBINED_HOST_COPY,   // Host-To-Host Copy, src write-combined, dest pageable
+   HOST_HOST_COMBINED_COPY,   // Host-To-Host Copy, src pageable, dest write-combined
+   HOST_HOST_COPY_COMBINED,   // Host-To-Host Copy, both write-combined host memories
+   HOST_COMBINED_DEVICE_COPY, // Host-To-Device Copy, write-combined host memory
+   DEVICE_HOST_COMBINED_COPY, // Device-To-Host Copy, write-combined host memory
 
    DEVICE_DEVICE_COPY,        // Device-To-Device copy, no peer support
    PEER_COPY_NO_UVA,          // Peer-to-Peer device copy, no uva support
    COPY_UVA                   // General UVA copy, CUDA runtime copy based on pointer addressing
 
 } MEM_OP;
-
-// Header for BenchParams class, user to read in and print out benchmark parameters
-#ifndef PARAM_CLASS_INC
-#include "parameters.h"
-#define PARAM_CLASS_INC
-#endif
-
-// Header for system topology detection; abstraction for numa.h and hwloc libraries
-#ifndef TOPOLOGY_CLASS_INC
-#include "topology.h"
-#define TOPOLOGY_CLASS_INC
-#endif
 

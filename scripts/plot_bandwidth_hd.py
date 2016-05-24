@@ -4,8 +4,23 @@ import sys
 import os
 import math
 
-color = ['#0000FF', '#FF0000', '#008000', '#FFFF00', '#800000', '#C0C0C0', '#800080', '#000000', '#00FFFF', '#A5522D']
-marker = list("o^sDx*8.|-")
+class text:
+   bold = '\033[1m'
+   italic = '\033[3m'
+   blue = '\033[34m'
+   red = '\033[91m'
+   end = '\033[0m'
+
+# blue, red, green, yellow, orange, purple, aqua, brown, gold, maroon, lime, fushia, dark gray, misty rose, tan, dark khaki, navy, cadet blue, black
+color = ['#0000FF', '#FF0000', '#008000', '#FFFF00', '#FFA500', '#800080', '#00FFFF', '#A52A2A', '#FFD700', '#800000', '#00FF00', '#FF00FF', '#A9A9A9', '#FFE4E1', '#D2B48C', '#000080', '#BDB76B', '#000080', '#5F9EA0', '#000000']
+marker=list("o^sDx*8.|h15p+_")
+
+class text:
+   bold = '\033[1m'
+   italic = '\033[3m'
+   blue = '\033[34m'
+   red = '\033[91m'
+   end = '\033[0m'
 
 if (len(sys.argv) < 2):
    print "Usage: python script_name.py results_file.csv"
@@ -40,20 +55,23 @@ if (testParams[5] != "t"):
 
 memTag = ["page","pin","wc","device"]
 memLabel = ["Pageable","Pinned","Write-Combined","Device"]
+memLabelShort = ["Page","Pin","WC","Device"]
 dirTag = ["h2d","d2h"]
 dirLabel = ["Host-to-Device","Device-to-Host"]
+dirLabelShort = ["H2D","D2H"]
 patternLabel=["Repeated","Linear Inc","Linear Dec"]
+patternLabelShort=["Rep","Inc","Dec"]
 patternTag=["repeat","linear_inc","linear_dec"]
 
 device = []
 for idx in range(0, numDevices):
    device.append(testParams[idx + 6]) 
 
-print "\nPlotting Host-Device bandwidth results from file " + sys.argv[1] + " given parameters:"
+print "\nPlotting results from file " + text.italic + text.bold + text.red + sys.argv[1] + text.end + " given parameters:"
 print "Socket Count: " + str(numSockets)
 print "Node Count: " + str(numNodes)
 print "Device Count: " + str(numDevices)
-print "# Patterns: " + str(numPatterns)
+print "# Access Patterns: " + str(numPatterns)
 print "Mem Labels: " + str(memLabel)
 print "Mem Tags: " + str(memTag)
 print "Transfer Labels: " + str(dirLabel)
@@ -65,8 +83,14 @@ print "Devices: " + str(device)
 # read transfer block size for each ranged step
 blkSize = np.genfromtxt (str(sys.argv[1]), delimiter=",", usecols=(0), skip_header=(1))
 
+data = []
+numCols = len(results.readline().strip().split(","));
+for idx in range(1, numCols):
+   data.append(np.genfromtxt (str(sys.argv[1]), delimiter=",", usecols=(idx), skip_header=(1)))
+
 #set print and save parameters depending on bw or tt type of graphs
-xmax = int(blkSize[-1] * 1.5)
+xmax = int(blkSize[-1] * 1.2)
+ymax = int(np.amax(data) * 1.2)
 #xmin = 0
 #ymax = 0
 ymin = 0
@@ -78,33 +102,27 @@ ylabel = ''
 if (printBW):
    ylabel = 'Copy Bandwidth (GB/S)'
    yscale = 'linear'
-   saveType = "hd_bw_"
+   saveType = "bw"
    ymin = 0.001
 else:
    ylabel = 'Transfer Time Per Block (us)'
-   saveType = "hd_tt_"
-   ymin = 0
-
-data = []
-numCols = len(results.readline().strip().split(","));
-for idx in range(1, numCols):
-   data.append(np.genfromtxt (str(sys.argv[1]), delimiter=",", usecols=(idx), skip_header=(1)))
+   saveType = "tt"
+   ymin = 0.1
 
 #function for saving specific plot to file
-def save_figure(figTag, title):
-   plt.figure(figTag)
+def save_figure(tag, title):
+   plt.figure(tag)
    plt.xscale(xscale)
    plt.yscale(yscale)
-   #plt.ylim(ymax=ymax)
+   plt.ylim(ymax=ymax)
    plt.ylim(ymin=ymin)
    plt.xlim(xmax=xmax)
-   #plt.xlim(xmin=xmin)
-   plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=7)
+   plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=10)
    
    plt.title(title)
    plt.ylabel(ylabel)
    plt.xlabel('Block Size (bytes)')
-   plt.savefig("./bandwidth/hd/" + saveType + figTag + ".png", bbox_inches='tight')
+   plt.savefig("./bandwidth/hd/" + saveType +"/" + tag + ".png", bbox_inches='tight')
    plt.clf()         
    return
 
@@ -193,7 +211,7 @@ for socket in range(0, numSockets):
                    
                   #CASE 4: Each socket, each pattern, both direction, all host mems, all src/dest pair
                   tag = "cpu" + str(socket) + "_" +  patternTag[patternIdx] + "_all_host_dev_dirs_mems"
-                  label = "Node " + str(hostIdx) + " " + device[devIdx] + " " + dirLabel[dirIdx] + " " + memLabel[memIdx]
+                  label = "Node " + str(hostIdx) + " " + device[devIdx] + " " + dirLabelShort[dirIdx] + " " + memLabel[memIdx]
                   add_scatter(blkSize, data[idx], color[devIdx * numDirs + dirIdx], marker[hostIdx * numMems + memIdx], tag, label)
 
             #CASE 3: Each socket, each pattern, each host mem, each direction, all src/dest pairs
@@ -216,8 +234,8 @@ for socket in range(0, numSockets):
  
                   #CASE 5: Each socket, each pattern, each direction, all host mems, all src/dest pair
                   tag = "cpu" + str(socket) + "_" +  patternTag[patternIdx] + "_" + dirTag[dirIdx] + "_all_host_dev_mems"
-                  label = "Node " + str(hostIdx) + " " + device[devIdx] + " " + memLabel[memIdx] + " Host"
-                  add_scatter(blkSize, data[idx], color[devIdx], marker[hostIdx * numMems + memIdx], tag, label)
+                  label = "Node " + str(hostIdx) + " " + device[devIdx] + " " + memLabel[memIdx]
+                  add_scatter(blkSize, data[idx], color[devIdx * numNodes + hostIdx], marker[hostIdx * numMems + memIdx], tag, label)
 
          #CASE 5: Each socket, each pattern, each direction, all host mems, all src/dest pair
          tag = "cpu" + str(socket) + "_" +  patternTag[patternIdx] + "_" + dirTag[dirIdx] + "_all_host_dev_mems"
@@ -239,12 +257,12 @@ for hostIdx in range(0, numNodes):
  
                   #CASE 6: Each src/dest pair, each pattern, each direction, each host mem, all sockets
                   tag = "host" + str(hostIdx) + "_dev" + str(devIdx) + "_" + patternTag[patternIdx] + "_" + dirTag[dirIdx] + "_" + memTag[memIdx] + "_all_cpus"
-                  label = "CPU " + str(socket) + "Node " + str(hostIdx) + " " + device[devIdx]
+                  label = "CPU " + str(socket) + " Node " + str(hostIdx) + " " + device[devIdx]
                   add_scatter(blkSize, data[idx], color[socket], marker[socket], tag, label)
 
                   #CASE 7: Each src/dest pair, each pattern, both directions, all host mems, all sockets
                   tag = "host" + str(hostIdx) + "_dev" + str(devIdx) + "_" + patternTag[patternIdx] + "_all_cpus_dirs_mems"
-                  label = "CPU " + str(socket) + " " + dirLabel[dirIdx] + " " + memLabel[memIdx] + " Host"
+                  label = "CPU " + str(socket) + " " + dirLabelShort[dirIdx] + " " + memLabel[memIdx]
                   add_scatter(blkSize, data[idx], color[dirIdx * numMems + memIdx], marker[socket], tag, label)
                   
                #CASE 6: Each src/dest pair, each pattern, each direction, each host mem, all sockets

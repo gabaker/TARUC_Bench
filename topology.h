@@ -1,9 +1,21 @@
+//cuda headers and helper functions
+#include <cuda_runtime.h>
+#include <cuda.h>
+#include "helper_cuda.h"
+//#include "nvml.h"
 
-//benchmark header
-#ifndef BENCH_HEADER_INC
-#define BENCH_HEADER_INC
-#include "benchmark.h"
-#endif
+// C/C++ standard includes
+#include <iostream>
+#include <string>
+#include <vector>
+#include <sstream>
+
+// OpenMP threading includes
+#include <omp.h>
+
+// NUMA Locality includes
+#include <sched.h>
+#include <hwloc.h>
 
 #ifndef TOPOLOGY_CLASS_INC
 #define TOPOLOGY_CLASS_INC
@@ -12,48 +24,47 @@ class SystemTopo
    public:
 
       //Topology pinning - numa and cpuset
-      void PinNumaNode(int nodeIdx);
-      void PinSocket(int socketIdx);
-      void PinCore(int coreIdx);
-      void PinPU(int puIdx);
-      void PinPUBySocket(int socketIdx, int puIdx);
-      void PinCoreBySocket(int socketIdx, int coreIdx);
+      void PinNode(int NodeIdx);
+      void PinSocket(int SocketIdx);
+      void PinCore(int CoreIdx);
+      void PinPU(int PUIdx);
+      void PinPUBySocket(int SocketIdx, int PUIdx);
+      void PinCoreBySocket(int SocketIdx, int CoreIdx);
 
       // Memory Allocation Functions 
-      void * AllocMemByCore(int coreIdx, long long numBytes);
-      void * AllocMemByNode(int nodeIdx, long long numBytes);
-      void * AllocMemBySocket(int socketIdx, long long numBytes);
-      void * AllocPinMemByNode(int nodeIdx, long long numBytes);
-      void * AllocWCMemByNode(int nodeIdx, long long numBytes);
-      void * AllocManagedMemByNode(int nodeIdx, int devIdx, long long numBytes);
-      void * AllocMappedMemByNode(int nodeIdx, int devIdx, long long numBytes);
-      void * AllocDeviceMem(int devIdx, long long numBytes);
+      void * AllocMemByCore(int CoreIdx, long long NumBytes);
+      void * AllocMemByNode(int NodeIdx, long long NumBytes);
+      void * AllocMemBySocket(int SocketIdx, long long NumBytes);
+      void * AllocPinMemByNode(int NodeIdx, long long NumBytes);
+      void * AllocWCMemByNode(int NodeIdx, long long NumBytes);
+      void * AllocManagedMemByNode(int NodeIdx, int DevIdx, long long NumBytes);
+      void * AllocMappedMemByNode(int NodeIdx, int DevIdx, long long NumBytes);
+      void * AllocDeviceMem(int DevIdx, long long NumBytes);
       
       // Memory Deallocation Functions
-      void FreeHostMem(void *addr, long long numBytes);     
-      void FreePinMem(void *addr, long long numBytes);
-      void FreeWCMem(void *addr);
-      void FreeMappedMem(void *addr);
-      void FreeManagedMem(void *addr);
-      void FreeDeviceMem(void *addr, int deviceIdx);
+      void FreeHostMem(void *Addr, long long NumBytes);     
+      void FreePinMem(void *Addr, long long NumBytes);
+      void FreeWCMem(void *Addr);
+      void FreeMappedMem(void *Addr);
+      void FreeManagedMem(void *Addr);
+      void FreeDeviceMem(void *Addr, int DevIdx);
 
       // Other Memory Utility Functions 
-      void SetHostMem(void *addr, int value, long long numBytes);
-      void SetDeviceMem(void *addr, int value, long long numBytes, int deviceIdx);
-      void PinHostMemory(void *addr, long long numBytes);
+      void SetHostMem(void *Addr, int Value, long long NumBytes);
+      void SetDeviceMem(void *Addr, int Value, long long NumBytes, int DevIdx);
+      void PinHostMemory(void *Addr, long long NumBytes);
 
       // Device UVA and P2P Functions
-      bool DeviceUVA(int deviceIdx);  
-      bool DeviceGroupUVA(int deviceA, int deviceB); 
-      bool DeviceGroupCanP2P(int deviceA, int deviceB);
-      void DeviceGroupSetP2P(int deviceA, int deviceB, bool status); 
+      bool DeviceUVA(int DevIdx);  
+      bool DeviceGroupUVA(int DevA, int DevB); 
+      bool DeviceGroupCanP2P(int DevA, int DevB);
+      void DeviceGroupSetP2P(int DevA, int DevB, bool Status); 
 
       // Device Utility Functions
-      void SetActiveDevice(int devIdx);
-      void ResetDevices(); 
+      void SetActiveDevice(int DevIdx);
       int NumPeerGroups();      
       std::vector<std::vector<int> > GetPeerGroups();
-      std::string GetDeviceName(int devIdx);
+      std::string GetDeviceName(int DevIdx);
 
       // System Topology Info and Utility
       int NumNodes();
@@ -64,20 +75,19 @@ class SystemTopo
       int NumPUsPerCore();
       int NumPUsPerSocket();
       int NumGPUs();
-      void GetTopology(hwloc_topology_t &dupTopology);
-      
+      void GetTopology(hwloc_topology_t &Copy);
       void PrintTopology(std::ofstream &OutFile);
-      void PrintDeviceProps(BenchParams &params);
+      void PrintDeviceProps(std::string FileName);
 
       SystemTopo();
       ~SystemTopo();
 
    private: 
       // HWLOC topology object
-      hwloc_topology_t topology;
+      hwloc_topology_t Topology;
 
       //Device Info
-      cudaDeviceProp *devProps;
+      cudaDeviceProp *DevProps;
       std::vector<std::vector<int> > PeerGroups;
       int PeerGroupCount;
 
@@ -95,7 +105,7 @@ class SystemTopo
       int CoresInSystem;
       int CoresPerSocket;
       int PUsPerCore;
-      int NumDevices;
+      int GPUs;
 
       // Structure types
       bool HyperThreaded;

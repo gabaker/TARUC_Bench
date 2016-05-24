@@ -37,10 +37,10 @@ echo    "-                          PU (Processing Unit): -A hardware thread    
 echo    "-                                                -For unix systems: PUs are the same as cores   -"
 echo    "-                                                 on systems without hyperthreading             -"
 echo    "-                                                                                               -"
-echo    "-                          Core ID: Logical core ID, each CPU has unique IDs for each           -"
+echo    "-                          Core ID: Physical core ID, each CPU has unique IDs for each          -"
 echo    "-                                   core present in the package/socket                          -"
 echo    "-                                                                                               -"
-echo    "-                          Socket ID: The logical CPU/package/node ID; identifies unique        -"
+echo    "-                          Socket ID: The Physical CPU/package/node ID; identifies unique       -"
 echo    "-                                     hardware CPUs rather than PUs                             -"
 echo    "-                                                                                               -"
 echo    "-                          Siblings/Sib: Related hardware PUs cooresponding to the number of    -"
@@ -88,6 +88,4 @@ do
 done < $cpuinfo_dir
 
 echo    "-------------------------------------------------------------------------------------------------"
-echo    "--------------------------------------- Memory Hierarchy ----------------------------------------"
-echo    "-                                                                                               -"
-echo    "-------------------------------------------------------------------------------------------------"
+

@@ -1,21 +1,24 @@
 
-#ifndef BENCH_HEADER_INC
-#define BENCH_HEADER_INC
-#include "benchmark.h"
-#endif
+// C/C++ standard includes
+#include <iostream>
+#include <string>
+#include <fstream>
+#include <sstream>
+#include <algorithm>
+#include<math.h>
 
 #ifndef PARAM_CLASS_INC
 #define PARAM_CLASS_INC
 
-#include<math.h>
 class BenchParams {
 
    public:
+      // Input information
       std::string inputFile;
       bool useDefaultParams;
-      
+     
+      // Output file names 
       std::string runTag;
-      bool printDevProps;
       std::string devPropFile;
       std::string topoFile;
 
@@ -29,7 +32,8 @@ class BenchParams {
       long numStepRepeats;
       long numRangeSteps;
       long long burstBlockSize;
- 
+
+      // Benchmark hardware information (combination of parameters and system topology info) 
       int nDevices;
       int nSockets;
 
@@ -42,7 +46,7 @@ class BenchParams {
       bool runPatternsHH;
       long long rangeHostHostBW[2]; //min, max range block size (in bytes)
       
-      // Host-Device PCIe Baseline bandwidth test
+      // Host-Device PCIe baseline bandwidth test
       bool runBandwidthTestHD;
       bool runPatternsHD;
       long long rangeHostDeviceBW[2]; //min, max range block size(in bytes)
@@ -51,24 +55,24 @@ class BenchParams {
       bool runBandwidthTestP2P; 
       long long rangeDeviceBW[2]; //min, max range block size(in bytes)
 
-      // Resource Congestion tests
+      // Resource congestion tests
       bool runContentionTest;
-      long long rangeCont[2];
+      long long contBlockSize[3];
       long long numContRepeats;
-      int numContMemTypes;
-      bool testContRange;
 
-      void ParseParamFile(std::string fileStr);
+      // Class initialization and setup
+      void ParseParamFile(std::string FileStr);
       void SetDefault();
       void PrintParams();      
       BenchParams() {};
       ~BenchParams() {};
       
    private:
-      bool GetNextBool(std::ifstream &inFile);
-      long long GetNextInteger(std::ifstream &inFile);
-      std::string GetNextString(std::ifstream &inFile);
-      std::string GetNextLine(std::ifstream &inFile);
+      // File parsing utility functions for value scanning
+      bool GetNextBool(std::ifstream &InFile);
+      long long GetNextInteger(std::ifstream &InFile);
+      std::string GetNextString(std::ifstream &InFile);
+      std::string GetNextLine(std::ifstream &InFile);
 
 } ;
 

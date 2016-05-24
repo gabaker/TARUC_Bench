@@ -5,7 +5,9 @@ then
    cd ..
 fi
 
-rm -rf ./results/*.png 
-rm -rf ./results/*.csv 
-rm -rf ./results/*.out
-rm -rf ./results/*.in
+rm -rf ./results
+
+#rm -rf ./results/*.png 
+#rm -rf ./results/*.csv 
+#rm -rf ./results/*.out
+#rm -rf ./results/*topology*

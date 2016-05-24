@@ -1,6 +1,5 @@
 ------- Benchmark Parameters --------
 Run Tag = anatta
-Print Device Props = true
 ------------- All Tests -------------
 Use All GPUs = true
 Test All Mem Types = true
@@ -8,7 +7,7 @@ Run Burst Tests = false
 Run Range Tests = true
 Run Sustained Tests = true
 Run Socket Effect Tests = true
-# Repeated Steps = 2
+# Repeated Steps = 20
 # Steps Per Magnitude = 10
 Burst Block Size (bytes) = 64000000
 ---------- Memory Overhead ----------
@@ -21,18 +20,18 @@ Vary Access Patterns = true
 Range Min = 100
 Range Max = 2500000000
 ------- Host-Device Bandwidth -------
-Run Host-Device Tests = true
+Run Host-Device Tests = false
 Vary Access Patterns = true
 Range Min = 100
 Range Max = 2500000000
 ----------- P2P Bandwidth -----------
 Run P2P Tests = false
 Range Min = 100
-Range Max = 2500000000
+Range Max = 1500000000
 -------- Resource Congestion --------
-Run Congestion Test = false
-Vary Block Size = true
-# Repeated Operations = 100
-Range Min = 100000
-Range Max = 10000000
+Run Congestion Test = true
+# Repeated Operations = 40
+Local Host Block Size =  100000000
+QPI Host Block Size =    100000000
+Host-Device Block Size = 100000000
 -------------------------------------

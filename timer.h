@@ -8,9 +8,9 @@
 // Does not compile with older C++ compiler versions (i.e. RHEL 6 standard g++ version)
 #ifdef USING_CPP
 #include <chrono>
-#endif
-
+#else
 #include <sys/time.h>
+#endif
 
 #ifndef TIMER_CLASS_INC
 #define TIMER_CLASS_INC
@@ -19,7 +19,6 @@ class Timer
    public:
       cudaStream_t stream;
       bool UseHostTimer;
-      
       void StartTimer();
       void StopTimer();
       float ElapsedTime();

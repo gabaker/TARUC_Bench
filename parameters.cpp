@@ -1,9 +1,10 @@
 
-//#ifndef PARAMS_CLASS_INC
-//#define PARAMS_CLASS_INC
+#ifndef PARAMS_CLASS_INC
+#define PARAMS_CLASS_INC
 #include "parameters.h"
-//#endif
+#endif
 
+// Get integer from next line formated as follows : "Label information = 5000"
 long long BenchParams::GetNextInteger(std::ifstream &inFile) {
    std::string lineStr = GetNextLine(inFile);
    
@@ -13,12 +14,14 @@ long long BenchParams::GetNextInteger(std::ifstream &inFile) {
    return std::atoll(lineStr.c_str());
 }
 
+// Get boolean from next line formated as follows : "Label information = true"
 bool BenchParams::GetNextBool(std::ifstream &inFile) {
    std::string lineStr = GetNextLine(inFile);
 
    return ((lineStr.find("alse") >= lineStr.length()) ? true : false); 
 }
 
+// Get string from next line formated as follows : "Label information = STRING_NAME_HERE"
 std::string BenchParams::GetNextString(std::ifstream &inFile) {
    std::string lineStr = GetNextLine(inFile);
 
@@ -27,6 +30,8 @@ std::string BenchParams::GetNextString(std::ifstream &inFile) {
    return lineStr.substr(lineStr.find_first_not_of(' '));
 }
 
+// Gets next line from file that is not a comment
+// Comment lines start with a dash ("-")
 std::string BenchParams::GetNextLine(std::ifstream &inFile) {
    // get lines of the input file until the first character of the line is not a dash
    // dashes represent comments
@@ -60,7 +65,6 @@ void BenchParams::ParseParamFile(std::string fileStr) {
    runTag  = GetNextString(inFile);                // runTag
    devPropFile = runTag + "_device_info.out";
    topoFile = runTag + "_topology.out";
-   printDevProps = GetNextBool(inFile);            // printDeviceProps
    
    // All Tests
    runAllDevices = GetNextBool(inFile);            // runAllDevices 
@@ -97,10 +101,9 @@ void BenchParams::ParseParamFile(std::string fileStr) {
    
    // Memory System Contention Test 
    runContentionTest = GetNextBool(inFile);     // runContentionTest
-   testContRange = GetNextBool(inFile);         // testContRange
    numContRepeats = GetNextInteger(inFile);     // numContRepeats
-   for (int i = 0; i < 2; i++)                  // rangeCont
-      rangeCont[i] = GetNextInteger(inFile);
+   for (int i = 0; i < 3; i++)                  // rangeCont
+      contBlockSize[i] = GetNextInteger(inFile);
 }
 
 // Set default device properties based on an interesting variety of tests 
@@ -113,7 +116,6 @@ void BenchParams::SetDefault() {
    useDefaultParams = true;
 
    runTag = "results";
-   printDevProps = true;
    devPropFile = runTag + "_device_info.out";
    topoFile = runTag + "_topology.out";
 
@@ -123,33 +125,33 @@ void BenchParams::SetDefault() {
    runRangeTests = true; 
    runSustainedTests = true;
    runSocketTests = true;
-   numStepRepeats = 20;
-   numRangeSteps = 1;
+   numStepRepeats = 10;
+   numRangeSteps = 10;
    burstBlockSize = 100000000;
    runMemoryOverheadTest = true; 
    
-   rangeMemOverhead[0] = 100;
-   rangeMemOverhead[1] = 1500000000;
+   rangeMemOverhead[0] = 1000;
+   rangeMemOverhead[1] = 100000000;
 
    runBandwidthTestHH = true;
    runPatternsHH = true;
-   rangeHostDeviceBW[0] = 100;
-   rangeHostDeviceBW[1] = 1500000000;
+   rangeHostDeviceBW[0] = 1000;
+   rangeHostDeviceBW[1] = 1000000000;
    
    runBandwidthTestHD = true;
    runPatternsHD = true;
-   rangeHostDeviceBW[0] = 100;
-   rangeHostDeviceBW[1] = 1500000000;
+   rangeHostDeviceBW[0] = 1000;
+   rangeHostDeviceBW[1] = 1000000000;
 
    runBandwidthTestP2P = true;
-   rangeDeviceBW[0] = 100;             // 100B min block size
-   rangeDeviceBW[1] = 1500000000;      // 1500MB max block size 
+   rangeDeviceBW[0] = 1000;             // 100B min block size
+   rangeDeviceBW[1] = 1000000000;      // 1500MB max block size 
    
    runContentionTest = false;
-   testContRange = true;
    numContRepeats = 50;
-   rangeCont[0] = 100000;       // 100KB min block size
-   rangeCont[1] = 100000000;    // 100MB max block size (default for no range)
+   contBlockSize[0] = 100000000;    // Local Host Memory Contention Test
+   contBlockSize[1] = 100000000;    // QPI Intersocket Memory Contententon Test 
+   contBlockSize[2] = 100000000;    // Host-Device Memory Contention Test (PCIe) 
    
 }
 
@@ -162,7 +164,6 @@ void BenchParams::PrintParams() {
    outParamStr << "Input File:\t\t\t" << inputFile << std::endl;
    outParamStr << "Using Defaults:\t\t\t" << useDefaultParams << std::endl;  
    outParamStr << "Run Tag:\t\t\t" << runTag << std::endl;
-   outParamStr << "Printing Device Props:\t\t" << printDevProps << std::endl;
    outParamStr << "Device Property File:\t\t" << devPropFile << std::endl;
    outParamStr << "Topology File:\t\t\t" << topoFile << std::endl;  
    outParamStr << "-----------------------------------------------------------------" << std::endl; 
@@ -209,9 +210,9 @@ void BenchParams::PrintParams() {
    outParamStr << "-----------------------------------------------------------------" << std::endl; 
    outParamStr << "Run Contention Test:\t\t" << runContentionTest << std::endl;
    outParamStr << "# Repeated Operations:\t\t" << numContRepeats << std::endl;
-   outParamStr << "Test Ranged Memory Blocks:\t" << testContRange << std::endl;
-   outParamStr << "Contention Range:\t\t";
-   outParamStr << rangeCont[0] << "," << rangeCont[1] << " (min,max)" << std::endl;
+   outParamStr << "Local Host Block Size:\t\t" << contBlockSize[0] << std::endl;
+   outParamStr << "Host QPI Mem BlockSize:\t\t" << contBlockSize[1] << std::endl;
+   outParamStr << "PCIe Mem Block Size:\t\t" << contBlockSize[2] << std::endl;
    outParamStr << "-----------------------------------------------------------------" << std::endl; 
    outParamStr << std::noboolalpha;
 
@@ -226,6 +227,5 @@ void BenchParams::PrintParams() {
    //read params out to command line
    outParamFile.close();
 }
-
 
 
