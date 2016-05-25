@@ -33,6 +33,7 @@ void HHRangeTransferTest(BenchParams &params, SystemTopo &topo);
 void HDRangeTransferTest(BenchParams &params, SystemTopo &topo);
 void P2PRangeTransferTest(BenchParams &params, SystemTopo &topo);
 void TestContention(BenchParams &params, SystemTopo &topo);
+void NUMALatencyTest(SystemTopo &topo);
 
 // Test Subfunctions
 void RangeHDBandwidthRun(BenchParams &params, SystemTopo &topo, std::vector<long long> &blockSteps, std::vector<std::vector<float> > &bandwidthData); 
@@ -166,9 +167,14 @@ void RunBenchmarkSuite(BenchParams &params, SystemTopo &topo) {
    if (params.runBandwidthTestP2P && params.runRangeTests && params.runAllDevices)
       P2PRangeTransferTest(params, topo);
 
+   // Non-Uniform Random Memory Access (NURMA) Test 
+   NUMALatencyTest(topo);
+
    // Contention benchmark tests
    if (params.runContentionTest)
       TestContention(params, topo);
+
+
 }
 
 void TestMemoryOverhead(BenchParams &params, SystemTopo &topo) {
@@ -602,61 +608,94 @@ void RangeP2PBandwidthRun(BenchParams &params, SystemTopo &topo, std::vector<lon
 
 void NUMALatencyTest(SystemTopo &topo) {
 
-	long long blockSize = 4000000000;
+	long long blockSize = 5000000000;
 	long long numDoubles = blockSize / sizeof(double);
 
-	long long rangeWidth = 1;
-	long long step = 1000000;
+   long long NumMemTypes = 2;
+	long long rangeMin = 1;
+	long long rangeMax = 10000;
+	long long magSteps = 1;
+   long long NumRepeats = 10000000;
+	long long gap = 100000000;
+   long long startIdx = 10000000;
+   std::vector<long long> blockSteps;
 
-	for (int socket = 0; socket < topo.NumSockets(); ++socket) {
+   int NumSteps = CalcRunSteps(blockSteps, rangeMin, rangeMax, magSteps);
+   
+   for (long long step = 0; step < NumSteps; ++step) {
 
-		topo.PinSocket(0);
-	
-		for (int srcNode = 0; srcNode < topo.NumNodes(); ++srcNode) {
+      for (int memType = 0; memType < NumMemTypes; ++memType) {
+      
+         long long rangeWidth = blockSteps[step];
+         
+         std::cout << "Num Doubles Copied Per Step: " << rangeWidth << std::endl;
+         std::cout << "Mem Type: " << memType << std::endl;
+         std::cout << "CPU\t\tSrc Node\tDest Node\tTime(us)" << std::endl;
+         
+         for (int socket = 0; socket < topo.NumSockets(); ++socket) {
 
-			for (int destNode = srcNode; destNode < topo.NumNodes(); ++destNode) {
+            for (int srcNode = 0; srcNode < topo.NumNodes(); ++srcNode) {
 
-				double * __restrict__ srcBlk = NULL;
-				double * __restrict__ destBlk = NULL;
+               for (int destNode = 0; destNode < topo.NumNodes(); ++destNode) {
 
-				double time = 0;
-				long long startIdx = 10000000;
+                  double * __restrict__ srcBlk = NULL;
+                  double * __restrict__ destBlk = NULL;
 
-		
-				srcBlk = (double *) topo.AllocPinMemByNode(srcNode, blockSize);
-				destBlk = (double *) topo.AllocPinMemByNode(srcNode, blockSize);
-				topo.SetHostMem(srcBlk, 10, blockSize);
-				topo.SetHostMem(destBlk, 0, blockSize);
+                  double time = 0;
 
-            topo.PinNode(srcNode);
+                  //topo.PinNode(socket); 
+                  // Pin, allocate and set source mem block to srcNode 
+                  topo.PinNode(srcNode);
+                  if (memType == 0)
+                     srcBlk = (double *) topo.AllocMemByNode(srcNode, blockSize);
+                  else 
+                     srcBlk = (double *) topo.AllocPinMemByNode(srcNode, blockSize); 
+                  topo.SetHostMem(srcBlk, 10, blockSize);
+                  
+                  // Pin, allocate and set dest node mem block to srcNode 
+                  topo.PinNode(destNode);
+                  if (memType == 0) 
+                     destBlk = (double *) topo.AllocMemByNode(destNode, blockSize);
+                  else 
+                     destBlk = (double *) topo.AllocPinMemByNode(destNode, blockSize);
+                  
+                  topo.SetHostMem(destBlk, 0, blockSize);
+                 
+                  topo.PinSocket(socket);
 
-            Timer timer(true);
-				timer.StartTimer();
-				
-				for (int repIdx = 0; repIdx < 100000; ++repIdx) {
-					
-					for (long long idx = 0; idx < rangeWidth; ++idx)
-						destBlk[idx + startIdx] = srcBlk[idx + startIdx];
-					
-					startIdx = (startIdx + step) % numDoubles;
-				}
-            
-            topo.FreePinMem(srcBlk, blockSize);
-            topo.FreePinMem(destBlk, blockSize);
-				
-				timer.StopTimer();
-				time = timer.ElapsedTime();
-				std::cout << srcNode << " " << destNode << " " << socket << " " << time / ((double) rangeWidth * 100) << std::endl;
-			}
-		}
-	}
+                  Timer timer(true);
+                  timer.StartTimer();
+                  
+                  for (int repIdx = 0; repIdx < NumRepeats; ++repIdx) {
+                     
+                     for (long long idx = 0; idx < rangeWidth; ++idx)
+                        destBlk[idx + startIdx] = srcBlk[idx + startIdx];
+                     
+                     startIdx = (startIdx + gap) % numDoubles;
+                  }
+                  
+                  timer.StopTimer();
+                  time = timer.ElapsedTime();
+                  
+                  if (memType == 0) {
+                     topo.FreeHostMem(srcBlk, blockSize);
+                     topo.FreeHostMem(destBlk, blockSize);
+                  } else {
+                     topo.FreePinMem(srcBlk, blockSize);
+                     topo.FreePinMem(destBlk, blockSize);
+                  }                  
+
+                  std::cout << socket << "\t\t" << srcNode << "\t\t" << destNode << "\t\t" << time << std::endl;
+               }
+            }
+         }
+      }
+   }
 }
 
 void TestContention(BenchParams &params, SystemTopo &topo) {
    
    std::cout << "Running Contention tests..." << std::endl;
-
-	NUMALatencyTest(topo);
 
    /* Memory Access: Single Socket, Single Node
     *
@@ -1929,16 +1968,15 @@ float TimedMemManageOp(void **MemBlk, long long NumBytes, MEM_OP TimedOp) {
 
 int CalcRunSteps(std::vector<long long> &blockSteps, long long startStep, long long stopStep, long long numSteps) {
 
-   int magStart = max((int) log10(startStep), 1);
+   int magStart = max((int) log10(startStep), 0);
    int magStop = log10(stopStep);
    long long totalSteps = (magStop - magStart) * numSteps;
    long long start = pow(10, magStart);
    long long stop = pow(10, magStop); 
    long long step = start;
-
    double expStep = ((double) (magStop  - magStart)) / (double) totalSteps;
-   double exp = 1.0;
-
+   double exp = magStart;
+   
    if (stop == step) {
       blockSteps.push_back(start);      
       totalSteps = 1;

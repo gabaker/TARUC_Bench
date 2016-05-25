@@ -5,7 +5,7 @@ SOURCES=topology.cu parameters.cpp
 BENCH_EXE=run
 O_FILES=parameters.o topology.o
 BENCH_FILES=benchmark.cu benchmark.h
-FLAGS= -std=c++11 -O3 -L/usr/local/lib -lhwloc -Xcompiler -fopenmp --compiler-bindir /bin/g++-5
+FLAGS= -std=c++11 -O3 -L/usr/local/lib -lhwloc -Xcompiler -fopenmp --compiler-bindir /bin/g++
 #-L/usr/src/gdk/nvml/lib/ -lnvidia-ml 
 #-lnuma
 
