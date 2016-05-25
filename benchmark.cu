@@ -608,85 +608,98 @@ void RangeP2PBandwidthRun(BenchParams &params, SystemTopo &topo, std::vector<lon
 
 void NUMALatencyTest(SystemTopo &topo) {
 
-	long long blockSize = 5000000000;
+   std::vector<std::vector<float> > data;
+   std::vector<long long> blockSteps;
+	
+	long long blockSize = 2000000000;
 	long long numDoubles = blockSize / sizeof(double);
 
-   long long NumMemTypes = 2;
-	long long rangeMin = 1;
-	long long rangeMax = 10000;
-	long long magSteps = 1;
-   long long NumRepeats = 10000000;
-	long long gap = 100000000;
+	long long rangeMin = 10;
+	long long rangeMax = 100000000;
+	long long magSteps = 3;
+	long long gap = 76040; // random skip size (keeps the blocks from repeating)
    long long startIdx = 10000000;
-   std::vector<long long> blockSteps;
 
    int NumSteps = CalcRunSteps(blockSteps, rangeMin, rangeMax, magSteps);
-   
-   for (long long step = 0; step < NumSteps; ++step) {
+	int testNum = 0; 
 
-      for (int memType = 0; memType < NumMemTypes; ++memType) {
-      
-         long long rangeWidth = blockSteps[step];
-         
-         std::cout << "Num Doubles Copied Per Step: " << rangeWidth << std::endl;
-         std::cout << "Mem Type: " << memType << std::endl;
-         std::cout << "CPU\t\tSrc Node\tDest Node\tTime(us)" << std::endl;
-         
-         for (int socket = 0; socket < topo.NumSockets(); ++socket) {
+   int NumMemTypes = 2;
+	if (!params.testAllMemTypes)
+		int NumMemTypes = 1;
 
-            for (int srcNode = 0; srcNode < topo.NumNodes(); ++srcNode) {
+	for (int memType = 0; memType < NumMemTypes; ++memType) {
+		
+		for (int socket = 0; socket < topo.NumSockets(); ++socket) {
 
-               for (int destNode = 0; destNode < topo.NumNodes(); ++destNode) {
+			for (int srcNode = 0; srcNode < topo.NumNodes(); ++srcNode) {
 
-                  double * __restrict__ srcBlk = NULL;
-                  double * __restrict__ destBlk = NULL;
+				for (int destNode = 0; destNode < topo.NumNodes(); ++destNode) {
+					
+					std::cout << "Test: " << testNum++;
+					if (memType == 0)
+						std::cout << "\t\tPageable Memory"; 
+					else 
+						std::cout << "\t\tPinned Memory"; 
 
-                  double time = 0;
+					std::cout << " CPU: " << socket << " Src Node: " << srcNode << " Dest Node: " << destNode << std::endl;
 
-                  //topo.PinNode(socket); 
-                  // Pin, allocate and set source mem block to srcNode 
-                  topo.PinNode(srcNode);
-                  if (memType == 0)
-                     srcBlk = (double *) topo.AllocMemByNode(srcNode, blockSize);
-                  else 
-                     srcBlk = (double *) topo.AllocPinMemByNode(srcNode, blockSize); 
-                  topo.SetHostMem(srcBlk, 10, blockSize);
-                  
-                  // Pin, allocate and set dest node mem block to srcNode 
-                  topo.PinNode(destNode);
-                  if (memType == 0) 
-                     destBlk = (double *) topo.AllocMemByNode(destNode, blockSize);
-                  else 
-                     destBlk = (double *) topo.AllocPinMemByNode(destNode, blockSize);
-                  
-                  topo.SetHostMem(destBlk, 0, blockSize);
-                 
-                  topo.PinSocket(socket);
+					double * __restrict__ srcBlk = NULL;
+					double * __restrict__ destBlk = NULL;
 
-                  Timer timer(true);
-                  timer.StartTimer();
-                  
-                  for (int repIdx = 0; repIdx < NumRepeats; ++repIdx) {
-                     
-                     for (long long idx = 0; idx < rangeWidth; ++idx)
-                        destBlk[idx + startIdx] = srcBlk[idx + startIdx];
-                     
-                     startIdx = (startIdx + gap) % numDoubles;
-                  }
-                  
-                  timer.StopTimer();
-                  time = timer.ElapsedTime();
-                  
-                  if (memType == 0) {
-                     topo.FreeHostMem(srcBlk, blockSize);
-                     topo.FreeHostMem(destBlk, blockSize);
-                  } else {
-                     topo.FreePinMem(srcBlk, blockSize);
-                     topo.FreePinMem(destBlk, blockSize);
-                  }                  
+					double time = 0;
 
-                  std::cout << socket << "\t\t" << srcNode << "\t\t" << destNode << "\t\t" << time << std::endl;
-               }
+					//topo.PinNode(socket); 
+					// Pin, allocate and set source mem block to srcNode 
+					topo.PinNode(srcNode);
+					if (memType == 0)
+						srcBlk = (double *) topo.AllocMemByNode(srcNode, blockSize);
+					else 
+						srcBlk = (double *) topo.AllocPinMemByNode(srcNode, blockSize); 
+					topo.SetHostMem(srcBlk, 10, blockSize);
+					
+					// Pin, allocate and set dest node mem block to srcNode 
+					topo.PinNode(destNode);
+					if (memType == 0) 
+						destBlk = (double *) topo.AllocMemByNode(destNode, blockSize);
+					else 
+						destBlk = (double *) topo.AllocPinMemByNode(destNode, blockSize);
+					
+					topo.SetHostMem(destBlk, 0, blockSize);
+				  
+					topo.PinNode(destNode);
+					topo.PinSocket(socket);
+
+					for (long long spin = 0; spin < 100000000; ++spin) {}
+
+					for (long long step = 0; step < NumSteps; ++step) {
+	
+						long long rangeWidth = blockSteps[step];
+						
+						Timer timer(true);
+						timer.StartTimer();
+						
+						for (int repIdx = 0; repIdx < rangeWidth; ++repIdx) {
+							
+							//for (long long idx = 0; idx < rangeWidth; ++idx)
+							destBlk[startIdx] = srcBlk[startIdx];
+							
+							startIdx = (startIdx + gap) % numDoubles;
+						}
+						
+						timer.StopTimer();
+						time = timer.ElapsedTime();
+						//std::cout << "Num accesses: "<< rangeWidth << " Time: " << time << std::endl;	
+					}	
+				
+					if (memType == 0) {
+						topo.FreeHostMem(srcBlk, blockSize);
+						topo.FreeHostMem(destBlk, blockSize);
+					} else {
+						topo.FreePinMem(srcBlk, blockSize);
+						topo.FreePinMem(destBlk, blockSize);
+					}                  
+
+					std::cout << socket << "\t\t" << srcNode << "\t\t" << destNode << "\t\t" << time << std::endl;
             }
          }
       }
