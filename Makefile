@@ -5,23 +5,22 @@ SOURCES=topology.cu parameters.cpp
 BENCH_EXE=run
 O_FILES=parameters.o topology.o
 BENCH_FILES=benchmark.cu benchmark.h
-FLAGS= -std=c++11 -O3 -lhwloc -Xcompiler -fopenmp 
-#-L/usr/src/gdk/nvml/lib/ -lnvidia-ml -D_MWAITXINTRIN_H_INCLUDED
-#-lpthread 
+FLAGS= -std=c++11 -O3 -L/usr/local/lib -lhwloc -Xcompiler -fopenmp --compiler-bindir /bin/g++-5
+#-L/usr/src/gdk/nvml/lib/ -lnvidia-ml 
 #-lnuma
 
 default: taruc
 
 nocpp: taruc_nocpp
 
-parameters.o: parameters.cpp parameters.h
-	$(CC) $(FLAGS) -c parameters.cpp -o parameters.o
-
 timer.o: timer.cu timer.h
 	$(CC) -D USING_CPP $(FLAGS) -c timer.cu -o timer.o
 
 timer_nocpp.o: timer.cu timer.h
 	$(CC) $(FLAGS) -c timer.cu -o timer_nocpp.o
+
+parameters.o: parameters.cpp parameters.h
+	$(CC) $(FLAGS) -c parameters.cpp -o parameters.o
 
 topology.o: topology.cu topology.h
 	$(CC) $(FLAGS) -c topology.cu -o topology.o

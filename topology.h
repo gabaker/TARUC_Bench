@@ -12,7 +12,8 @@
 #include <string>
 #include <vector>
 #include <sstream>
-//#include <cmath>
+#include <cmath>
+#include <math.h>
 
 // OpenMP threading includes
 #include <omp.h>
@@ -20,7 +21,7 @@
 // NUMA Locality includes
 #include <sched.h>
 #include <hwloc.h>
-
+#include <hwloc/helper.h>
 class SystemTopo
 {
    public:

@@ -136,8 +136,8 @@ int main (int argc, char **argv) {
    RunBenchmarkSuite(benchParams, sysTopo);
 
    std::cout << "\nBenchmarks complete!\n" << std::endl;
-  
-   return 0;
+   
+	return 0;
 }
 
 void RunBenchmarkSuite(BenchParams &params, SystemTopo &topo) {
