@@ -13,7 +13,8 @@ class text:
 
 # blue, red, green, yellow, orange, purple, aqua, brown, gold, maroon, lime, fushia, dark gray, misty rose, tan, dark khaki, navy, cadet blue, black
 color = ['#0000FF', '#FF0000', '#008000', '#FFFF00', '#FFA500', '#800080', '#00FFFF', '#A52A2A', '#FFD700', '#800000', '#00FF00', '#FF00FF', '#A9A9A9', '#FFE4E1', '#D2B48C', '#000080', '#BDB76B', '#000080', '#5F9EA0', '#000000']
-marker=list("o^sDx*8.|h15p+_")
+#marker=list("o^sDx*8.|h15p+_")
+marker=list("o^sDx*8.|h1p+_")
 
 class text:
    bold = '\033[1m'
@@ -67,7 +68,8 @@ device = []
 for idx in range(0, numDevices):
    device.append(testParams[idx + 6]) 
 
-print "\nPlotting results from file " + text.italic + text.bold + text.red + sys.argv[1] + text.end + " given parameters:"
+print ("\nPlotting results from file " + text.italic + text.bold + text.red + "" 
+      "" + sys.argv[1] + text.end + " given parameters:")
 print "Socket Count: " + str(numSockets)
 print "Node Count: " + str(numNodes)
 print "Device Count: " + str(numDevices)
@@ -117,18 +119,18 @@ def save_figure(tag, title):
    plt.ylim(ymax=ymax)
    plt.ylim(ymin=ymin)
    plt.xlim(xmax=xmax)
-   plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=10)
+   plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=10, labelspacing=0.60)
    
    plt.title(title)
    plt.ylabel(ylabel)
    plt.xlabel('Block Size (bytes)')
-   plt.savefig("./bandwidth/hd/" + saveType +"/" + tag + ".png", bbox_inches='tight')
+   plt.savefig("./bandwidth/hd/" + saveType +"/" + tag + ".png", bbox_inches='tight', dpi=150)
    plt.clf()         
    return
 
 def add_scatter(x, y, color, mark, tag, label):
    plt.figure(tag)
-   plt.scatter(x, y, c = color, marker = mark, label = label) 
+   plt.scatter(x, y, c = color, marker = mark, label = label, linewidth = 0.25) 
    return
 
 #CASE 0: Each socket, each src/dest pair, each host mem, each direction, all patterns

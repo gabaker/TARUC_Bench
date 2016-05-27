@@ -13,7 +13,7 @@ class text:
 
 # blue, red, green, yellow, orange, purple, aqua, brown, gold, maroon, lime, fushia, dark gray, misty rose, tan, dark khaki, navy, cadet blue, black
 color = ['#0000FF', '#FF0000', '#008000', '#FFFF00', '#FFA500', '#800080', '#00FFFF', '#A52A2A', '#FFD700', '#800000', '#00FF00', '#FF00FF', '#A9A9A9', '#FFE4E1', '#D2B48C', '#000080', '#BDB76B', '#000080', '#5F9EA0', '#000000']
-marker=list("o^sDx*8.|h15p+_")
+marker=list("o^sDx*8.|h1p+_")
 
 if (len(sys.argv) < 2):
    print "Usage: python script_name.py results_file.csv"
@@ -61,9 +61,9 @@ def save_figure(tag, title, numTicks, subfolder):
    plt.ylim(ymax=ymax)
    plt.ylabel("Transfer Bandwidth (GB/s)")
    plt.xlabel('Number of Concurrent Threads')
-   plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=10, labelspacing=0.60)
+   plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=10, labelspacing=0.50)
    plt.xticks(np.arange(1, numTicks + 1)) 
-   plt.savefig("./contention/pcie/" + subfolder + title + ".png", bbox_inches='tight', dpi=200)
+   plt.savefig("./contention/pcie/" + subfolder + title + ".png", bbox_inches='tight', dpi=150)
    plt.clf()
    return
 
@@ -191,7 +191,7 @@ if (numGPUs > 1):
                   label = "All Nodes\n" + devices[devIdx] + "\n" + dirLabel[dirIdx]
                   tag = "nodes_test_" + dirTag[dirIdx] + "_all_dev_pairs"
                
-               add_chart(threads + shift, y, color[pairIdx], tag, label, offset)
+               add_chart(threads + shift, y, color[pairIdx % len(color)], tag, label, offset)
 
                # CASE 5.5: Each Direction, Each Device Pair, All Nodes 
                numBars = numCPUTests
