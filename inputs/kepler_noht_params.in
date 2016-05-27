@@ -1,0 +1,42 @@
+------------ Benchmark Parameters ------------
+Run Tag = kepler_noht
+------------- General Parameters -------------
+Use All GPUs = true
+Test All Mem Types = true
+Run Burst Tests = false
+Run Range Tests = true
+Run Sustained Tests = true
+Run Socket Effect Tests = true
+Test Access Patterns = true
+# Repeated Steps = 20
+# Steps Per Magnitude = 10
+Burst Block Size (bytes) = 64000000
+-------------- Memory Overhead ---------------
+Run Memory Overhead Test = true
+Range Min (bytes) = 10
+Range Max (bytes) = 1500000000
+-------------- Host-Host Bandwidth -----------
+Run Host-Host Tests = true
+Range Min (bytes) = 10
+Range Max (bytes) = 1500000000
+----------- Host-Device Bandwidth ------------
+Run Host-Device Tests = true
+Range Min (bytes) = 10
+Range Max (bytes) = 1500000000
+--------------- P2P Bandwidth ----------------
+Run P2P Tests = true
+Range Min (bytes) = 10
+Range Max (bytes) = 1500000000
+------ Non-Uniform Random Memory Access ------
+Run NURMA Test = true
+Memory Skip Gap Size (doubles) = 654
+Memory Block Size (doubles) = 5000000000 
+Min # Random Accesses (doubles) = 1
+Max # Random Accesses (doubles) = 100000000
+------------- Resource Congestion ------------
+Run Congestion Test = true
+# Repeated Operations = 50
+Local Host Block Size (bytes) =  100000000
+QPI Host Block Size (bytes) = 100000000
+Host-Device Block Size (bytes) = 100000000
+----------------------------------------------
