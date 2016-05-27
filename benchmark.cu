@@ -200,7 +200,7 @@ void TestMemoryOverhead(BenchParams &params, SystemTopo &topo) {
          topo.PinNode(nodeIdx);
         
          std::cout << "Test " << testNum++ << " Host Alloc/Free, Pinned/Pageable/Write-Combined\t";
-         std::cout << "NUMA node: " << nodeIdx << " CPU " << socketIdx << std::endl;            
+         std::cout << "NUMA Node: " << nodeIdx << " CPU: " << socketIdx << std::endl;            
          
          // Host based management memory types
          for (long stepIdx = 0; stepIdx < steps.size(); stepIdx++) {
@@ -253,7 +253,7 @@ void TestMemoryOverhead(BenchParams &params, SystemTopo &topo) {
       for (int currDev = 0; currDev < params.nDevices; currDev++) {
          topo.SetActiveDevice(currDev);
 
-         std::cout << "Test " << testNum++ << " Device Alloc/Free \t\t\t\t" << "CPU " << socketIdx << " Dev:" << currDev << std::endl;            
+         std::cout << "Test " << testNum++ << " Device Alloc/Free \t\t\t\t" << "CPU: " << socketIdx << " Dev: " << currDev << std::endl;            
         
          // Test each block size in order 
          for (long stepIdx = 0; stepIdx < steps.size(); stepIdx++) {
