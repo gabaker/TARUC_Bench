@@ -49,7 +49,6 @@ print "Operation Tags: " + str(opTag)
 print "Operation Labels: " + str(opLabel)
 print "Transfer Direction Tags: " + str(dirTag)
 print "Transfer Direction Labels: " + str(dirLabel)
-print data
 
 def save_figure(tag, title, numTicks):
    plt.figure(tag)

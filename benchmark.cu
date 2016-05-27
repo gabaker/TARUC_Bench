@@ -655,7 +655,7 @@ void NURMATest(BenchParams &params, SystemTopo &topo) {
 					topo.PinSocket(socket);
                
                // Spin to ensure thread has switched context
-               for (volatile long long spin = 0; spin < 500; ++spin) {}
+               for (volatile long long spin = 0; spin < 100; ++spin) {}
 
 					for (long long stepIdx = 0; stepIdx < steps.size(); ++stepIdx) {
 	

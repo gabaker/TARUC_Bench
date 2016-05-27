@@ -43,8 +43,8 @@ ymax = np.max(data) * 1.1
 print ("\nPlotting results from file " + text.italic + text.bold + text.red + sys.argv[1] + ""
       "" + text.end + " given parameters:")
 print "Socket Count: " + str(numSockets)
-print "PU (per CPU) Count: " + str(threads)  
 print "Memory Operation Count: " + str(numOps)  
+print "Num Threads: " + str(numThreads)  
 print "Operation Labels: " + str(opLabel)  
 print "Operation Tags: " + str(opTag)  
 
