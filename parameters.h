@@ -1,3 +1,7 @@
+#ifndef PARAM_CLASS_INC
+#define PARAM_CLASS_INC
+
+#define NUM_ACCESS_PATTERNS 3
 
 // C/C++ standard includes
 #include <iostream>
@@ -6,9 +10,6 @@
 #include <sstream>
 #include <algorithm>
 //#include<math.h>
-
-#ifndef PARAM_CLASS_INC
-#define PARAM_CLASS_INC
 
 class BenchParams {
 
@@ -29,31 +30,40 @@ class BenchParams {
       bool runRangeTests; 
       bool runSustainedTests;
       bool runSocketTests;
+      bool runPatternTests;
       long numStepRepeats;
       long numRangeSteps;
       long long burstBlockSize;
 
+      // Parameters determined by input values
+      int numPatterns;
+
       // Benchmark hardware information (combination of parameters and system topology info) 
       int nDevices;
+      int nNodes;
       int nSockets;
 
       // Overhead memory test for allocation and deallocation of Host and Device memory
       bool runMemoryOverheadTest;
-      long long rangeMemOverhead[2]; //min, max range block size (in bytes)
+      long long rangeMemOH[2]; //min, max range block size (in bytes)
 
       // Host-Host memory bandwidth test
       bool runBandwidthTestHH;
-      bool runPatternsHH;
-      long long rangeHostHostBW[2]; //min, max range block size (in bytes)
+      long long rangeHHBW[2]; //min, max range block size (in bytes)
       
       // Host-Device PCIe baseline bandwidth test
       bool runBandwidthTestHD;
-      bool runPatternsHD;
-      long long rangeHostDeviceBW[2]; //min, max range block size(in bytes)
+      long long rangeHDBW[2]; //min, max range block size(in bytes)
 
       // Peer-to-peer device memory transfer bandwidth
       bool runBandwidthTestP2P; 
-      long long rangeDeviceBW[2]; //min, max range block size(in bytes)
+      long long rangeP2PBW[2]; //min, max range block size(in bytes)
+
+      // Non-Uniform Random Memory Access (NURMA) micro-benchmark
+      bool runNURMATest;
+      long long gapNURMA;
+      long long blockSizeNURMA;
+      long long rangeNURMA[2];
 
       // Resource congestion tests
       bool runContentionTest;

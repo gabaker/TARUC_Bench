@@ -20,12 +20,10 @@
 #include <sched.h>
 #include <hwloc.h>
 
+#define HOST_MEM_TYPES 2
+
 // Memory block size conversions
 #define BYTES_TO_MEGA ((double) pow(2.0, 20))
-
-// Test parameter counts
-#define NUM_PATTERNS 3
-#define HOST_MEM_TYPES 3
 
 // Memory access patterns to test help adjust small PCI transfer latency for possible Host 
 // caching effects with repeated transfers of memory blocks
