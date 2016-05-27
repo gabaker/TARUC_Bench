@@ -5,9 +5,18 @@ SOURCES=topology.cu parameters.cpp
 BENCH_EXE=run
 O_FILES=parameters.o topology.o
 BENCH_FILES=benchmark.cu benchmark.h
-FLAGS= -std=c++11 -O3 -L/usr/local/lib -lhwloc -Xcompiler -fopenmp --compiler-bindir /bin/g++-5
+
+# Anatta
+#FLAGS= -std=c++11 -O3 -L/usr/local/lib -I/usr/local/include -lhwloc -Xcompiler -fopenmp
+
+# Kepler
+#FLAGS= -std=c++11 -O3 -L/usr/local/lib -I/usr/local/include -lhwloc -Xcompiler -fopenmp --compiler-bindir /bin/g++-5
+
+# Satya1-4
+FLAGS= -std=c++11 -O3 -I/home/gmbaker/include -L/home/gmbaker/lib -lhwloc -Xcompiler -fopenmp
+
+# w/ nvml on anatta
 #-L/usr/src/gdk/nvml/lib/ -lnvidia-ml 
-#-lnuma
 
 default: taruc
 
