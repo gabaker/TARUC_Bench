@@ -136,7 +136,7 @@ for socket in range(0, numSockets):
                
                if (patternIdx == 0):      
                   #CASE -1: All
-                  tag = "_all_cpu_src_dest_trans_types_patterns"
+                  tag = "all_cpu_src_dest_trans_types_patterns"
                   label = "CPU: " + str(socket) + " Src: " + str(srcNode) + " Dest: " + str(destNode) + " " + transLabelShort[transIdx] + " " + patternLabelShort[patternIdx]
                   add_scatter(blkSize, data[idx], color[socket * numNodes  * numNodes + srcNode * numNodes + destNode], marker[transIdx], tag, label)
 
