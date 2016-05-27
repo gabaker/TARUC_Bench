@@ -192,7 +192,7 @@ for transIdx in range(0, numTransTypes):
                      label = device[srcDev] + " to " + device[destDev] + " " + transLabel[transIdx]
                   else:
                      label = device[destDev] + " to " + device[srcDev] + " " + transLabel[transIdx]
-                  add_scatter(blkSize, data[idx + prevIdx], color[colorIdx], marker[destDev * 2 + dirIdx], tag, label)
+                  add_scatter(blkSize, data[idx + prevIdx], color[colorIdx], marker[(destDev * 2 + dirIdx) % len(marker)], tag, label)
                   # CASE 3: Each transfer type, Both Directions, All Sockets, All D2D Pairs
                   tag = transTag[transIdx] + "_all_cpu_dev_dirs"
                   if (dirIdx == 0):
