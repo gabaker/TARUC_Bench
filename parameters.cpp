@@ -74,7 +74,7 @@ void BenchParams::ParseParamFile(std::string fileStr) {
    runSustainedTests = GetNextBool(inFile);        // runSustainedTests
    runSocketTests = GetNextBool(inFile);           // runSocketTests
    runPatternTests = GetNextBool(inFile);          // runPatternTests
-   numPatterns = (runPatternTests ? 1 : NUM_ACCESS_PATTERNS);
+   numPatterns = (runPatternTests ? NUM_ACCESS_PATTERNS: 1);
 
    numStepRepeats = (long) GetNextInteger(inFile); // numStepRepeats
    numRangeSteps = (long) GetNextInteger(inFile);  // numRangeSteps
