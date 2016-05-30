@@ -8,25 +8,25 @@ Run Range Tests = true
 Run Sustained Tests = true
 Run Socket Effect Tests = true
 Test Access Patterns = true
-# Repeated Steps = 20
+# Repeated Steps = 10
 # Steps Per Magnitude = 10
 Burst Block Size (bytes) = 64000000
 -------------- Memory Overhead ---------------
-Run Memory Overhead Test = false
+Run Memory Overhead Test = true
 Range Min (bytes) = 10
 Range Max (bytes) = 1500000000
 -------------- Host-Host Bandwidth -----------
-Run Host-Host Tests = false
+Run Host-Host Tests = true
 Range Min (bytes) = 10
 Range Max (bytes) = 1500000000
 ----------- Host-Device Bandwidth ------------
 Run Host-Device Tests = true
 Range Min (bytes) = 10
-Range Max (bytes) = 15000000
+Range Max (bytes) = 1500000000
 --------------- P2P Bandwidth ----------------
 Run P2P Tests = true
 Range Min (bytes) = 10
-Range Max (bytes) = 15000000
+Range Max (bytes) = 1500000000
 ------ Non-Uniform Random Memory Access ------
 Run NURMA Test = true
 Memory Skip Gap Size (doubles) = 654
