@@ -82,6 +82,6 @@ eval ./$exe $bench_params
 
 # plot data and save graphs
 echo -e "\e[34m\e[1mRunning plotting scripts:\e[0m \e[1m\e[31m$plot_script\e[0m\n"
-${PWD}/scripts/plot_data.sh
+#${PWD}/scripts/plot_data.sh
 
 
