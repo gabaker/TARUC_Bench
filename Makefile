@@ -7,13 +7,13 @@ O_FILES=parameters.o topology.o
 BENCH_FILES=benchmark.cu benchmark.h
 
 # Anatta
-#FLAGS= -std=c++11 -O3 -L/usr/local/lib -I/usr/local/include -lhwloc -Xcompiler -fopenmp
+FLAGS= -std=c++11 -O3 -L/usr/local/lib -I/usr/local/include -lhwloc -Xcompiler -fopenmp
 
 # Kepler
 #FLAGS= -std=c++11 -O3 -L/usr/local/lib -I/usr/local/include -lhwloc -Xcompiler -fopenmp --compiler-bindir /bin/g++-5
 
 # Satya1-4
-FLAGS= -std=c++11 -O3 -I/home/gmbaker/include -L/home/gmbaker/lib -lhwloc -Xcompiler -fopenmp
+#FLAGS= -std=c++11 -O3 -I/home/gmbaker/include -L/home/gmbaker/lib -lhwloc -Xcompiler -fopenmp
 
 # w/ nvml on anatta
 #-L/usr/src/gdk/nvml/lib/ -lnvidia-ml 

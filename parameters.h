@@ -14,10 +14,6 @@
 class BenchParams {
 
    public:
-      // Input information
-      std::string inputFile;
-      bool useDefaultParams;
-     
       // Output file names 
       std::string runTag;
       std::string devPropFile;
@@ -50,7 +46,7 @@ class BenchParams {
       // Host-Host memory bandwidth test
       bool runBandwidthTestHH;
       long long rangeHHBW[2]; //min, max range block size (in bytes)
-      
+
       // Host-Device PCIe baseline bandwidth test
       bool runBandwidthTestHD;
       long long rangeHDBW[2]; //min, max range block size(in bytes)
@@ -76,8 +72,12 @@ class BenchParams {
       void PrintParams();      
       BenchParams() {};
       ~BenchParams() {};
-      
+
    private:
+      // Input information
+      std::string inputFile;
+      bool useDefaultParams;
+
       // File parsing utility functions for value scanning
       bool GetNextBool(std::ifstream &InFile);
       long long GetNextInteger(std::ifstream &InFile);

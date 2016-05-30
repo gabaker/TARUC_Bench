@@ -179,19 +179,20 @@ if (numGPUs > 1):
                   tag = "nodes_test_dev_pair_" + str(devIdx1) + "_" + str(devIdx2) + "_all_copy_dirs"
                
                add_chart(threads + shift, y, color[dirIdx], tag, label, offset)
-
-               # CASE 5: Each Node, Each Direction, All Device Pairs
-               numBars = numGPUPairs
-               offset = 0.96 / numBars
-               shift = pairIdx * offset - 0.48
                
-               label = "Node " + str(cpuIdx) + "\n" + devices[devIdx] + "\n" + dirLabel[dirIdx]
-               tag = "node" + str(cpuIdx) + "_" + dirTag[dirIdx] + "_all_dev_pairs"
-               if (((cpuIdx + 1) == numCPUs) & (numCPUs > 1)):
-                  label = "All Nodes\n" + devices[devIdx] + "\n" + dirLabel[dirIdx]
-                  tag = "nodes_test_" + dirTag[dirIdx] + "_all_dev_pairs"
-               
-               add_chart(threads + shift, y, color[pairIdx % len(color)], tag, label, offset)
+               if (numGPUs < 5):
+                  # CASE 5: Each Node, Each Direction, All Device Pairs
+                  numBars = numGPUPairs
+                  offset = 0.96 / numBars
+                  shift = pairIdx * offset - 0.48
+                  
+                  label = "Node " + str(cpuIdx) + "\n" + devices[devIdx] + "\n" + dirLabel[dirIdx]
+                  tag = "node" + str(cpuIdx) + "_" + dirTag[dirIdx] + "_all_dev_pairs"
+                  if (((cpuIdx + 1) == numCPUs) & (numCPUs > 1)):
+                     label = "All Nodes\n" + devices[devIdx] + "\n" + dirLabel[dirIdx]
+                     tag = "nodes_test_" + dirTag[dirIdx] + "_all_dev_pairs"
+                  
+                  add_chart(threads + shift, y, color[pairIdx % len(color)], tag, label, offset)
 
                # CASE 5.5: Each Direction, Each Device Pair, All Nodes 
                numBars = numCPUTests
@@ -217,14 +218,16 @@ if (numGPUs > 1):
                tag = "nodes_test_dev_pair_" + str(devIdx1) + "_" + str(devIdx2) + "_all_copy_dirs"
             save_figure(tag, tag, numThreads, "gpu_pair/")
 
-      # Save bar charts for case 5
-      for dirIdx in range(0, numDirs):
-         
-         # CASE 5: Each Node, Each Direction, All Device Pairs
-         tag = "node" + str(cpuIdx) + "_" + dirTag[dirIdx] + "_all_dev_pairs"
-         if (((cpuIdx + 1) == numCPUs) & (numCPUs > 1)):
-            tag = "nodes_test_" + dirTag[dirIdx] + "_all_dev_pairs"
-         save_figure(tag, tag, numThreads, "gpu_pair/")
+      
+      if (numGPUs < 5):
+         # Save bar charts for case 5
+         for dirIdx in range(0, numDirs):
+            
+            # CASE 5: Each Node, Each Direction, All Device Pairs
+            tag = "node" + str(cpuIdx) + "_" + dirTag[dirIdx] + "_all_dev_pairs"
+            if (((cpuIdx + 1) == numCPUs) & (numCPUs > 1)):
+               tag = "nodes_test_" + dirTag[dirIdx] + "_all_dev_pairs"
+            save_figure(tag, tag, numThreads, "gpu_pair/")
 
    for devIdx1 in range(0, numGPUs):
       for devIdx2 in range(devIdx1 + 1, numGPUs):

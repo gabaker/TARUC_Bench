@@ -30,7 +30,7 @@ Range Max (bytes) = 1500000000
 ------ Non-Uniform Random Memory Access ------
 Run NURMA Test = true
 Memory Skip Gap Size (doubles) = 654
-Memory Block Size (doubles) = 2000000000 
+Memory Block Size (doubles) = 200000000 
 Min # Random Accesses (doubles) = 1
 Max # Random Accesses (doubles) = 100000000
 ------------- Resource Congestion ------------

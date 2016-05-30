@@ -43,7 +43,7 @@ class SystemTopo
       void * AllocManagedMemByNode(int NodeIdx, int DevIdx, long long NumBytes);
       void * AllocMappedMemByNode(int NodeIdx, int DevIdx, long long NumBytes);
       void * AllocDeviceMem(int DevIdx, long long NumBytes);
-      
+
       // Memory Deallocation Functions
       void FreeHostMem(void *Addr, long long NumBytes);     
       void FreePinMem(void *Addr, long long NumBytes);

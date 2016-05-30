@@ -127,6 +127,10 @@ numDirs = 2
 prevIdx = 0
 # CASE 0: All Non-Intra GPU Transfers
 # CASE 1: Each Socket, Each D2D Pair, Both Direction, All Transfer Types
+# CASE 2: Each transfer type, Both Direction, Each Socket, All D2D Pairs 
+# CASE 3: Each transfer type, Both Directions, All Sockets, All D2D Pairs
+
+
 for socket in range(0, numSockets):
    for srcDev in range(0, numDevices):
       for destDev in range(srcDev, numDevices):     
