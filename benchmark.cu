@@ -754,7 +754,7 @@ void ContentionSubTestMem(BenchParams &params, SystemTopo &topo) {
    long long blockSize = params.contBlockSize[0] / sizeof(double);
    
    int testNum = 0;
-   int MaxThreads = topo.NumPUs();
+   int MaxThreads = topo.NumCores();
    int NumOps = 3;
    float conv = 1.0E-6; 
 
