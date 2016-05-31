@@ -42,11 +42,11 @@ if (testParams[3] != "t"):
 numTransTypes = 2
 transTag = ["d2d","peer"]
 transLabel = ["Device-to-Device Copy","Peer Async Copy"]
-transLabel = ["D2D","P2P"]
+#transLabel = ["D2D","P2P"]
 
-device = []
+devices = []
 for idx in range(0, numDevices):
-   device.append(testParams[idx + 4]) 
+   devices.append(testParams[idx + 4]) 
 
 peerList = []
 for group in range(0, numGroups):
@@ -70,7 +70,8 @@ print "Peer Groups: " + str(peerList)
 print "Transfer Count: " + str(numTransPerPair)
 print "Transfer Types: " + str(transLabel)
 print "Transfer Tags: " + str(transTag)
-print "Devices: " + str(device)
+print "Devices: " + str(devices)
+print numTransPerPair
 
 # read transfer block size for each ranged step
 blkSize = np.genfromtxt (str(sys.argv[1]), delimiter=",", usecols=(0), skip_header=(1 + numGroups))
@@ -115,21 +116,24 @@ def save_figure(tag, title):
    plt.xlabel('Block Size (bytes)')
    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=10, labelspacing=0.50)
    plt.savefig("bandwidth/p2p/" + saveType + "/" + tag + ".png", bbox_inches='tight', dpi=150)
-   plt.clf()
+   #plt.clf()
    return
 
 def add_scatter(x, y, color, mark, tag, label):
    plt.figure(tag)
-   plt.scatter(x, y, c = color, marker = mark, label = label, linewidth = 0.25) 
+   plt.scatter(x, y, c = color, marker = mark, label = label, linewidth = 0.25, s=12) 
    return
 
 numDirs = 2
 prevIdx = 0
-# CASE 0: All Non-Intra GPU Transfers
-# CASE 1: Each Socket, Each D2D Pair, Both Direction, All Transfer Types
-# CASE 2: Each transfer type, Both Direction, Each Socket, All D2D Pairs 
-# CASE 3: Each transfer type, Both Directions, All Sockets, All D2D Pairs
+label = ""
+tag = ""
 
+# CASE 0: Each Socket, Each D2D Pair, All Transfer Types, Both Directions
+# CASE 1: Each Socket, Each D2D Pair, Each Transfer Type, Both Directions
+# CASE 2: Each D2D Pair, Each Transfer Type, Both Directions, All Sockets
+# CASE 3: Each D2D Pair, All Transfer Types, Both Directions, All Sockets
+# CASE 4: All Intra-node Transfers
 
 for socket in range(0, numSockets):
    for srcDev in range(0, numDevices):
@@ -138,102 +142,90 @@ for socket in range(0, numSockets):
             numDirs = 1
          else:
             numDirs = 2
-
-         # CASE 1: Each Socket, Each D2D Pair, Both Direction, All Transfer Types
+         
          for transIdx in range(0, numTransPerPair[srcDev][destDev]):
             for dirIdx in range(0, numDirs):
-               idx = prevIdx + transIdx * numDirs + dirIdx
-               # CASE 0: All Non-Intra GPU Transfers
+               idx =  prevIdx + transIdx * numDirs + dirIdx
+
                if (srcDev != destDev):
-                  tag = "all_transfers_no_intra_gpu"
+                  # CASE 0: Each Socket, Each D2D Pair, All Transfer Types, Both Directions
+                  tag = "cpu" + str(socket) + "_dev" + str(srcDev) + "_" + str(destDev) + "_all_trans_types_dirs"
                   if (dirIdx == 0):
-                     label = "CPU " + str(socket) + " " + device[srcDev] + " to " + device[destDev] + " " + transLabel[transIdx]
+                     label = "Src: " + devices[srcDev] + "\nDest: " + devices[destDev] + "\n" + transLabel[transIdx]
                   else:
-                     label = "CPU " + str(socket) + " " + device[destDev] + " to " + device[srcDev] + " " + transLabel[transIdx]
-                  add_scatter(blkSize, data[idx], color[socket * 2 + dirIdx], marker[socket], tag, label) 
+                     label = "Src: " + devices[destDev] + "\nDest: " + devices[srcDev] + "\n" + transLabel[transIdx]
+                  add_scatter(blkSize, data[idx], color[transIdx * numDirs + dirIdx], marker[transIdx * numDirs + dirIdx], tag, label) 
+                  
+                  # CASE 1: Each Socket, Each D2D Pair, Each Transfer Type, Both Directions
+                  tag = "cpu" + str(socket) + "_dev_" + str(srcDev) + "_" + str(destDev) + "_" + transTag[transIdx] + "_all_dirs"
+                  if (dirIdx == 0):
+                     label = "Src: " + devices[srcDev] + "\nDest: " + devices[destDev]
+                  else:
+                     label = "Src: " + devices[destDev] + "\nDest: " + devices[srcDev]
+                  add_scatter(blkSize, data[idx], color[dirIdx], marker[dirIdx], tag, label) 
 
-               tag = "cpu" + str(socket) + "_dev" + str(srcDev) + "_dev" + str(destDev) + "_both_dir_all_trans_types"
-               if (dirIdx == 0):
-                  label = device[srcDev] + " to " + device[destDev] + " " + transLabel[transIdx]
-               else:
-                  label = device[destDev] + " to " + device[srcDev] + " " + transLabel[transIdx]
-               
-               add_scatter(blkSize, data[idx], color[dirIdx], marker[transIdx], tag, label)
+                  # CASE 2: Each D2D Pair, Each Transfer Type, Both Directions, All Sockets
+                  tag = "dev_" + str(srcDev) + "_" + str(destDev) + "_" + transTag[transIdx] + "_all_dirs_cpus"
+                  if (dirIdx == 0):
+                     label = "CPU " + str(socket) + "\nSrc: " + devices[srcDev] + "\nDest: " + devices[destDev]
+                  else:
+                     label = "CPU " + str(socket) + "\nSrc: " + devices[destDev] + "\nDest: " + devices[srcDev]
+                  add_scatter(blkSize, data[idx], color[socket * numDirs + dirIdx], marker[socket * numDirs + dirIdx], tag, label) 
 
+                  # CASE 3: Each D2D Pair, All Transfer Types, Both Directions, All Sockets
+                  tag = "dev_" + str(srcDev) + "_" + str(destDev) + "_all_trans_types_dirs_cpus"
+                  if (dirIdx == 0):
+                     label = "CPU " + str(socket) + "\nSrc: " + devices[srcDev] + "\nDest: " + devices[destDev] + "\n" + transLabel[transIdx]
+                  else:
+                     label = "CPU " + str(socket) + "\nSrc: " + devices[destDev] + "\nDest: " + devices[srcDev] + "\n" + transLabel[transIdx]
+                  add_scatter(blkSize, data[idx], color[transIdx * numDirs * numSockets + dirIdx * numSockets + socket], marker[dirIdx * numSockets + socket], tag, label) 
+    
+               if (srcDev == destDev):
+                  # CASE 4: All Intra-gpu Transfers
+                  tag = "cpu" + str(socket) + "_" + "all_dev_intra_gpu_trans"
+                  label = "" + devices[srcDev] 
+                  add_scatter(blkSize, data[idx], color[srcDev], marker[srcDev], tag, label) 
+       
          prevIdx += numDirs * numTransPerPair[srcDev][destDev]
-         
-         # CASE 1: Each Socket, Each D2D Pair, Both Direction, All Transfer Types
-         tag = "cpu" + str(socket) + "_dev" + str(srcDev) + "_dev" + str(destDev) + "_both_dir_all_trans_types"
-         save_figure(tag, tag)
 
-# CASE 0: All Non-Intra GPU Transfers
-tag = "all_transfers_no_intra_gpu"
-save_figure(tag, tag)
+# Save graphs for case 2 + 3
+for socket in range(0, numSockets):
+   # CASE 4: All Intra-gpu Transfers
+   tag = "cpu" + str(socket) + "_" + "all_dev_intra_gpu_trans"
+   save_figure(tag, tag)
 
-if (numDevices <= 4):
+   for srcDev in range(0, numDevices):
+      for destDev in range(srcDev, numDevices):     
 
-	# CASE 2: Each transfer type, Both Direction, Each Socket, All D2D Pairs 
-	# CASE 3: Each transfer type, Both Directions, All Sockets, All D2D Pairs
-	for transIdx in range(0, numTransTypes):
-		if (transIdx == 0):
-			prevIdx = 0
-		else:
-			prevIdx = 1
-		colorIdx2 = 0
-		for socket in range(0, numSockets):
-			colorIdx = 0
-			for srcDev in range(0, numDevices):
-				for destDev in range(srcDev, numDevices):
-					if (srcDev == destDev):
-						numDirs = 1
-					else:
-						numDirs = 2
+         if (srcDev != destDev):
+            # CASE 0: Each Socket, Each D2D Pair, All Transfer Types, Both Directions
+            tag = "cpu" + str(socket) + "_dev" + str(srcDev) + "_" + str(destDev) + "_all_trans_types_dirs"
+            save_figure(tag, tag)
 
-					for dirIdx in range(0, numDirs):
-						if (transIdx == 0):
-							# CASE 2: Each transfer type, Each Socket, Both Directions, All D2D Pairs 
-							idx = dirIdx * numTransPerPair[srcDev][destDev]
-							tag = "cpu" + str(socket) + "_" + transTag[transIdx] + "_all_dev_dirs"
-							if (dirIdx == 0):
-								label = device[srcDev] + " to " + device[destDev] + " " + transLabel[transIdx]
-							else:
-								label = device[destDev] + " to " + device[srcDev] + " " + transLabel[transIdx]
-							add_scatter(blkSize, data[idx + prevIdx], color[colorIdx], marker[(destDev * 2 + dirIdx) % len(marker)], tag, label)
-							# CASE 3: Each transfer type, Both Directions, All Sockets, All D2D Pairs
-							tag = transTag[transIdx] + "_all_cpu_dev_dirs"
-							if (dirIdx == 0):
-								label = "CPU " + str(socket) + " " + device[srcDev] + " to " + device[destDev] + " " + transLabel[transIdx]
-							else:
-								label = "CPU " + str(socket) + " " + device[destDev] + " to " + device[srcDev] + " " + transLabel[transIdx]
-							add_scatter(blkSize, data[idx + prevIdx], color[colorIdx2], marker[dirIdx * numSockets + socket], tag, label)
+            # CASE 3: Each D2D Pair, All Transfer Types, Both Directions, All Sockets
+            tag = "dev_" + str(srcDev) + "_" + str(destDev) + "_all_trans_types_dirs_cpus"
+            save_figure(tag, tag)
 
-							colorIdx+=1
-						elif (numTransPerPair[srcDev][destDev] == 2):
-							# CASE 2: Each transfer type, Each Socket, Both Directions, All D2D Pairs 
-							idx = dirIdx * numTransPerPair[srcDev][destDev]
-							tag = "cpu" + str(socket) + "_" + transTag[transIdx] + "_all_dev_dirs"
-							if (dirIdx == 0):
-								label = device[srcDev] + " to " + device[destDev] + " " + transLabel[transIdx]
-							else:
-								label = device[destDev] + " to " + device[srcDev] + " " + transLabel[transIdx]
-							add_scatter(blkSize, data[idx + prevIdx], color[colorIdx], marker[destDev * 2 + dirIdx], tag, label)
-							
-							# CASE 3: Each transfer type, Both Directions, All Sockets, All D2D Pairs
-							tag = transTag[transIdx] + "_all_cpu_dev_dirs"
-							if (dirIdx == 0):
-								label = "CPU " + str(socket) + " " + device[srcDev] + " to " + device[destDev] + " " + transLabel[transIdx]
-							else:
-								label = "CPU " + str(socket) + " " + device[destDev] + " to " + device[srcDev] + " " + transLabel[transIdx]
-							add_scatter(blkSize, data[idx + prevIdx], color[colorIdx2], marker[dirIdx * numSockets + socket], tag, label)
-					colorIdx2 += 1
-					prevIdx += numDirs
-			# CASE 2: Each transfer type, Each Socket, Both Directions, All D2D Pairs 
-			tag = "cpu" + str(socket) + "_" + transTag[transIdx] + "_all_dev_dirs"
-			save_figure(tag, tag)
-		
-		# CASE 3: Each transfer type, Both Directions, All Sockets, All D2D Pairs
-		tag = transTag[transIdx] + "_all_cpu_dev_dirs"
-		save_figure(tag, tag)
+         for transIdx in range(0, numTransPerPair[srcDev][destDev]):
+            
+            if (srcDev != destDev): 
+               # CASE 1: Each Socket, Each D2D Pair, Each Transfer Type, Both Directions
+               tag = "cpu" + str(socket) + "_dev_" + str(srcDev) + "_" + str(destDev) + "_" + transTag[transIdx] + "_all_dirs"
+               save_figure(tag, tag)
+
+               # CASE 2: Each D2D Pair, Each Transfer Type, Both Directions, All Sockets
+               tag = "dev_" + str(srcDev) + "_" + str(destDev) + "_" + transTag[transIdx] + "_all_dirs_cpus"
+               save_figure(tag, tag)
+
+
+
+
+
+
+
+
+
+
 
 
 

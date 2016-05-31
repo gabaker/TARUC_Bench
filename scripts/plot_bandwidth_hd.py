@@ -130,7 +130,7 @@ def save_figure(tag, title):
 
 def add_scatter(x, y, color, mark, tag, label):
    plt.figure(tag)
-   plt.scatter(x, y, c = color, marker = mark, label = label, linewidth = 0.25) 
+   plt.scatter(x, y, c = color, marker = mark, label = label, linewidth = 0.25, s=12) 
    return
 
 #CASE 0: Each socket, each src/dest pair, each host mem, each direction, all patterns

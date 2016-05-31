@@ -108,9 +108,9 @@ def save_figure(tag, title):
    #plt.ylim(ymax=ymax)
    plt.xlim(xmin=xmin)
    plt.xlim(xmax=xmax)
-   plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=10, labelspacing=0.50)
+   plt.legend(loc='upper left', bbox_to_anchor=(0, 1.0), fontsize=10, labelspacing=0.50)
 
-   plt.title(title)
+   #plt.title(title)
    plt.ylabel(ylabel)
    plt.xlabel('Copied Block Size (bytes)')
    plt.savefig("./bandwidth/hh/" + saveType + "/" + tag + ".png", bbox_inches='tight', dpi=150)
@@ -119,7 +119,7 @@ def save_figure(tag, title):
 
 def add_scatter(x, y, color, mark, tag, label):
    plt.figure(tag)
-   plt.scatter(x, y, c = color, marker = mark, label = label, linewidth = 0.25) 
+   plt.scatter(x, y, c = color, marker = mark, label = label, linewidth = 0.25, s=12) 
    return
 
 #CASE -1: All

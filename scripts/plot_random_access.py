@@ -67,17 +67,17 @@ def save_figure(tag, title):
    plt.ylim(ymin=ymin)
    #plt.ylim(ymax=ymax)
    
-   plt.title(title)
+   #plt.title(title)
    plt.ylabel("Total Access Time (us)")
    plt.xlabel("Number of Doubles Accessed")
-   plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=10, labelspacing=0.50)
-   plt.savefig("random_access/" + tag + ".png", bbox_inches='tight', dpi=150)
+   plt.legend(loc='upper left', bbox_to_anchor=(0.0, 1.0), fontsize=10, labelspacing=0.50)
+   plt.savefig("random_access/" + tag + ".png", bbox_inches='tight', dpi=150, markersize=20)
    plt.clf()
    return
 
 def add_scatter(x, y, color, mark, tag, label):
    plt.figure(tag)
-   plt.scatter(x, y, c = color, marker = mark, label = label, linewidth=0.25) 
+   plt.scatter(x, y, c = color, marker = mark, label = label, linewidth=0.25, s=10) 
    return
 
 # CASE 0: All 
@@ -93,18 +93,21 @@ for memIdx in range(0, numMemTypes):
 
             # CASE 0: All 
             tag = "all_mem_cpu_nodes"
-            label = memLabel[memIdx] + " CPU: " + str(socket) + " Src: " + str(srcNode) + " Dest: " + str(destNode) 
-            add_scatter(blkSize, data[idx], color[srcNode * numNodes + destNode], marker[memIdx * numSockets + socket], tag, label)
+            label = memLabel[memIdx] + " CPU: " + str(socket) + " Src: " + str(srcNode) + " Dest: " + str(destNode)
+            colorIdx = (memIdx * numSockets * numNodes * numNodes + socket * numNodes * numNodes + srcNode * numNodes + destNode) % len(color)
+            add_scatter(blkSize, data[idx], color[colorIdx], marker[memIdx * numSockets + socket], tag, label)
 
             # CASE 1: Each Memory Type, All socket, All src nodes, All nodes
             tag = memTag[memIdx] + "_all_cpu_nodes"
-            label = "CPU: " + str(socket) + " Src: " + str(srcNode) + " Dest: " + str(destNode) 
-            add_scatter(blkSize, data[idx], color[srcNode * numNodes + destNode], marker[socket], tag, label)
+            label = "CPU: " + str(socket) + " Src: " + str(srcNode) + " Dest: " + str(destNode)
+            colorIdx = (socket * numNodes * numNodes + srcNode * numNodes + destNode) % len(color) 
+            add_scatter(blkSize, data[idx], color[colorIdx], marker[colorIdx], tag, label)
 
             # CASE 2: Each Memory Type, Each Socket, All src/dest nodes
             tag = memTag[memIdx] + "_cpu" + str(socket) + "_all_nodes"
             label = " Src: " + str(srcNode) + " Dest: " + str(destNode) 
-            add_scatter(blkSize, data[idx], color[srcNode * numNodes + destNode], marker[0], tag, label)
+            colorIdx = (srcNode * numNodes + destNode) % len(color)
+            add_scatter(blkSize, data[idx], color[colorIdx], marker[colorIdx], tag, label)
 
       # CASE 2: Each Memory Type, Each Socket, All src/dest nodes
       tag = memTag[memIdx] + "_cpu" + str(socket) + "_all_nodes"
@@ -130,7 +133,8 @@ for socket in range(0, numSockets):
             # CASE 3: Each Socket, All Memory Types. All src/dest nodes
             tag = "cpu" + str(socket) + "_all_mem_nodes"
             label = memLabel[memIdx] + " Src: " + str(srcNode) + " Dest: " + str(destNode) 
-            add_scatter(blkSize, data[idx], color[srcNode * numNodes + destNode], marker[memIdx], tag, label)
+            colorIdx = (memIdx * numNodes * numNodes + srcNode * numNodes + destNode) % len(color) 
+            add_scatter(blkSize, data[idx], color[colorIdx], marker[srcNode * numNodes + destNode], tag, label)
 
    # CASE 3: Each Socket, All Memory Types. All src/dest nodes
    tag = "cpu" + str(socket) + "_all_mem_nodes"
@@ -148,7 +152,8 @@ for srcNode in range(0, numNodes):
             # CASE 4: Each src/dest node, All Sockets, All Memory Types
             tag = "src" + str(srcNode) + "_dest" + str(destNode) + "_all_mem_cpu"
             label = memLabel[memIdx] + " CPU: " + str(socket) 
-            add_scatter(blkSize, data[idx], color[memIdx], marker[socket], tag, label)
+            colorIdx = (memIdx * numSockets + socket) % len(color) 
+            add_scatter(blkSize, data[idx], color[colorIdx], marker[colorIdx], tag, label)
 
       # CASE 4: Each src/dest node, All Sockets, All Memory Types
       tag = "src" + str(srcNode) + "_dest" + str(destNode) + "_all_mem_cpu"
