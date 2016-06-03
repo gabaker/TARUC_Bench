@@ -939,7 +939,7 @@ void ContentionSubTestQPI(BenchParams &params, SystemTopo &topo) {
                AllocMemBlock(topo, (void **) &srcBlk, blockSize * sizeof(double), PAGE, srcNode);
                AllocMemBlock(topo, (void **) &destBlk, blockSize * sizeof(double), PAGE, destNode);
                if (opIdx != 0)
-                  AllocMemBlock(topo, (void **) &addBlk, blockSize * sizeof(double), PAGE, srcNode);
+                  AllocMemBlock(topo, (void **) &addBlk, blockSize * sizeof(double), PAGE, destNode);
               
                // Set thread memory to initial values 
                SetMemBlock(topo, (void *) srcBlk, blockSize * sizeof(double), 8, PAGE);
@@ -1073,7 +1073,7 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
                   // Get local thread ID
                   int threadIdx = omp_get_thread_num();
                   void * __restrict__ hostBlk, * __restrict__ devBlk;
-                  int node, core, dir;
+                  int node, core;
 
                   node = socketIdx;
                   core = threadIdx % topo.NumCoresPerSocket();
@@ -1081,16 +1081,6 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
                      node = threadIdx % topo.NumSockets();
                      core = threadIdx / topo.NumSockets();
                   }                  
-
-                  if (dirIdx == 0) {
-                     dir = 0;
-                  } else if (dirIdx == 1) {
-                     dir = 1;
-                  } else { //dirIdx == 2
-                     node = threadIdx % 2;
-                     dir = (threadIdx / 2) % 2;
-                     core = 2 * (threadIdx / (2 * topo.NumSockets())) + dir;
-                  }
 
                   // Pin Cores for execution and NUMA memory regions; set GPU device
                   topo.PinCoreBySocket(node, core); 
@@ -1110,10 +1100,16 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
                   threadTimer.StartTimer();
                    
                   for (int repCount = 0; repCount < params.numContRepeats; ++repCount) {
-                     if (dir == 0)
+                     if (dirIdx == 0) {
                         MemCopyOp(devBlk, hostBlk, blockSize, HOST_PINNED_DEVICE_COPY, 0, 0, threadTimer.stream);
-                     else
+                     } else if (dirIdx == 1) { 
                         MemCopyOp(hostBlk, devBlk, blockSize, DEVICE_HOST_PINNED_COPY, 0, 0, threadTimer.stream);
+                     } else {
+                        if (repCount % 2)
+                           MemCopyOp(devBlk, hostBlk, blockSize, HOST_PINNED_DEVICE_COPY, 0, 0, threadTimer.stream);
+                        else
+                           MemCopyOp(hostBlk, devBlk, blockSize, DEVICE_HOST_PINNED_COPY, 0, 0, threadTimer.stream);
+                     }
                   }
                   
                   threadTimer.StopTimer();     
@@ -1179,19 +1175,10 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
                         void * hostBlk, * devBlk;
                         int socket = socketIdx;
                         int core = threadIdx % topo.NumCoresPerSocket();
-                        int dir = dirIdx;
-
-                        if (dirIdx == 2)
-                           dir = threadIdx % 2;
-
+                        
                         if (socketIdx == topo.NumSockets()) {
                            socket = (threadIdx / 2) % topo.NumSockets(); 
                            core =  2 * (threadIdx / (2 * topo.NumSockets())) + threadIdx % 2;
-                           if (dirIdx == 2) {
-                              dir = (threadIdx / 2) % 2;
-                              socket = (threadIdx / 4) % topo.NumSockets();                        
-                              core = 4 * (threadIdx / (4 * topo.NumSockets())) + threadIdx % 4;
-                           }
                         }
 
                         int device = devIdx2;
@@ -1217,10 +1204,16 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
                         threadTimer.StartTimer();
           
                         for (int repCount = 0; repCount < params.numContRepeats; repCount++) {
-                           if (dir == 0)
-                              MemCopyOp(hostBlk, devBlk, blockSize, DEVICE_HOST_PINNED_COPY, 0, 0, threadTimer.stream);
-                           else
+                           if (dirIdx == 0) {
                               MemCopyOp(devBlk, hostBlk, blockSize, HOST_PINNED_DEVICE_COPY, 0, 0, threadTimer.stream);
+                           } else if (dirIdx == 1) { 
+                              MemCopyOp(hostBlk, devBlk, blockSize, DEVICE_HOST_PINNED_COPY, 0, 0, threadTimer.stream);
+                           } else {
+                              if (repCount % 2)
+                                 MemCopyOp(devBlk, hostBlk, blockSize, HOST_PINNED_DEVICE_COPY, 0, 0, threadTimer.stream);
+                              else
+                                 MemCopyOp(hostBlk, devBlk, blockSize, DEVICE_HOST_PINNED_COPY, 0, 0, threadTimer.stream);
+                           }
                         }
                         
                         threadTimer.StopTimer();     
@@ -1280,9 +1273,6 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
                   
                   int socket = socketIdx;
                   int core = threadIdx % topo.NumCoresPerSocket();
-                  int dir = dirIdx % 2;
-                  if (dirIdx == 2)
-                     dir = (threadIdx / topo.NumGPUs()) % 2;
                   int devIdx = threadIdx % topo.NumGPUs();
                   
                   topo.SetActiveDevice(devIdx);
@@ -1304,10 +1294,16 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
                   threadTimer.StartTimer();
     
                   for (int repCount = 0; repCount < params.numContRepeats; repCount++) {
-                     if (dir == 0)
+                     if (dirIdx == 0) {
                         MemCopyOp(devBlk, hostBlk, blockSize, HOST_PINNED_DEVICE_COPY, 0, 0, threadTimer.stream);
-                     else 
+                     } else if (dirIdx == 1) { 
                         MemCopyOp(hostBlk, devBlk, blockSize, DEVICE_HOST_PINNED_COPY, 0, 0, threadTimer.stream);
+                     } else {
+                        if (repCount % 2)
+                           MemCopyOp(devBlk, hostBlk, blockSize, HOST_PINNED_DEVICE_COPY, 0, 0, threadTimer.stream);
+                        else
+                           MemCopyOp(hostBlk, devBlk, blockSize, DEVICE_HOST_PINNED_COPY, 0, 0, threadTimer.stream);
+                     }
                   }
                   
                   threadTimer.StopTimer();     
