@@ -73,10 +73,10 @@ def save_figure(tag, title):
    plt.xlim(xmin=xmin)
    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=10, labelspacing=0.5)
 
-   plt.title(title)
+   #plt.title(title)
    plt.ylabel('Call Duration (us)')
    plt.xlabel('Freed Block Size (bytes)')
-   plt.savefig("./overhead/" + tag + ".png", bbox_inches='tight', dpi=150)
+   plt.savefig("./overhead/" + tag + ".png", bbox_inches='tight', dpi=200)
    plt.clf()
    return
 

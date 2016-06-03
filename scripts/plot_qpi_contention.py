@@ -59,7 +59,7 @@ def save_figure(tag, title, numTicks):
    plt.xlabel('Number of Concurrent Threads')
    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=10, labelspacing=0.50)
    plt.xticks(np.arange(1, numTicks + 1)) 
-   plt.savefig("./contention/qpi/" + title + ".png", bbox_inches='tight', dpi=150)
+   plt.savefig("./contention/qpi/" + title + ".png", bbox_inches='tight', dpi=200)
    plt.clf()
    return
 

@@ -100,7 +100,7 @@ for idx in range(1, numCols):
 xmax = int(blkSize[-1] * 1.2)
 xmin = int(blkSize[0])
 #function for saving specific plot to file
-def save_figure(tag, title):
+def save_figure(tag, title, large_plot=False):
    plt.figure(tag)
    plt.xscale(xscale)
    plt.yscale(yscale)
@@ -108,12 +108,15 @@ def save_figure(tag, title):
    #plt.ylim(ymax=ymax)
    plt.xlim(xmin=xmin)
    plt.xlim(xmax=xmax)
-   plt.legend(loc='upper left', bbox_to_anchor=(0, 1.0), fontsize=10, labelspacing=0.50)
+   if (large_plot == True):
+      plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=10, labelspacing=0.50)
+   else:   
+      plt.legend(loc='upper left', bbox_to_anchor=(0.0,1.0), fontsize=10, labelspacing=0.50)
 
    #plt.title(title)
    plt.ylabel(ylabel)
    plt.xlabel('Copied Block Size (bytes)')
-   plt.savefig("./bandwidth/hh/" + saveType + "/" + tag + ".png", bbox_inches='tight', dpi=150)
+   plt.savefig("./bandwidth/hh/" + saveType + "/" + tag + ".png", bbox_inches='tight', dpi=200)
    plt.clf()         
    return
 
@@ -149,8 +152,13 @@ for socket in range(0, numSockets):
             
             #CASE 0: Each socket, each src/dest pair, each pattern, all transfer types
             tag = "cpu" + str(socket) + "_src" + str(srcNode) + "_dest" + str(destNode) + "_" + patternTag[patternIdx] + "_all_tran_types"
-            save_figure(tag, tag)
-         
+            
+            if (numSockets > 1):
+               save_figure(tag, tag, True)
+            else:
+               save_figure(tag, tag)
+
+
          for transIdx in range(0, numTransTypes):
             for patternIdx in range(0, numPatterns):
                idx = socket * (numNodes * numNodes * numTransTypes * numPatterns) + \
@@ -186,8 +194,8 @@ for socket in range(0, numSockets):
          save_figure(tag, tag)
 
 #CASE -1: All
-tag = "_all_cpu_src_dest_trans_types_patterns"
-save_figure(tag, tag)
+tag = "all_cpu_src_dest_trans_types_patterns"
+save_figure(tag, tag, True)
 
 #CASE 3: Each transfer type, each src/dest pair, each pattern, all sockets
 #CASE 4: Each transfer type, each src/dest pair, all patterns, all sockets
@@ -232,7 +240,7 @@ if (numSockets > 1):
  
                   #CASE 5: Each Transfer type, each pattern, all sockets, all src/dest pairs  
                   tag = "all_cpu_src_dest_" + transTag[transIdx] + "_" + patternTag[patternIdx]
-                  label = "CPU: " + str(socket) + " Src Node: " + str(srcNode) + " Dest Node: " + str(destNode)
+                  label = "CPU: " + str(socket) + " Src: " + str(srcNode) + " Dest: " + str(destNode)
                   add_scatter(blkSize, data[idx], color[srcNode * numNodes + destNode], marker[socket], tag, label)
 
          #CASE 5: Each Transfer type, each pattern, all sockets, all src/dest pairs  

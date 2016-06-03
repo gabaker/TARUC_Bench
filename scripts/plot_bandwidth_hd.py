@@ -112,19 +112,22 @@ else:
    ymin = 0.1
 
 #function for saving specific plot to file
-def save_figure(tag, title):
+def save_figure(tag, title, large_plot=False):
    plt.figure(tag)
    plt.xscale(xscale)
    plt.yscale(yscale)
    plt.ylim(ymax=ymax)
    plt.ylim(ymin=ymin)
    plt.xlim(xmax=xmax)
-   plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=10, labelspacing=0.60)
-   
-   plt.title(title)
+   if (large_plot == True):
+      plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=10, labelspacing=0.50)
+   else:   
+      plt.legend(loc='upper left', bbox_to_anchor=(0.0,1.0), fontsize=10, labelspacing=0.50)
+
+   #plt.title(title)
    plt.ylabel(ylabel)
    plt.xlabel('Block Size (bytes)')
-   plt.savefig("./bandwidth/hd/" + saveType +"/" + tag + ".png", bbox_inches='tight', dpi=150)
+   plt.savefig("./bandwidth/hd/" + saveType +"/" + tag + ".png", bbox_inches='tight', dpi=200)
    plt.clf()         
    return
 
@@ -208,21 +211,28 @@ for socket in range(0, numSockets):
                   
                   #CASE 3: Each socket, each pattern, each host mem, each direction, all src/dest pairs
                   tag = "cpu" + str(socket) + "_" + patternTag[patternIdx] + "_" + memTag[memIdx] + "_" + dirTag[dirIdx] + "_all_host_dev"
-                  label = "Node: " + str(hostIdx) + " " + device[devIdx] 
-                  add_scatter(blkSize, data[idx], color[devIdx], marker[hostIdx], tag, label)
+                  label = "Node: " + str(hostIdx) + " " + device[devIdx]
+                  colorIdx = devIdx % len(color) 
+                  add_scatter(blkSize, data[idx], color[colorIdx], marker[hostIdx], tag, label)
                    
                   #CASE 4: Each socket, each pattern, both direction, all host mems, all src/dest pair
                   tag = "cpu" + str(socket) + "_" +  patternTag[patternIdx] + "_all_host_dev_dirs_mems"
                   label = "Node " + str(hostIdx) + " " + device[devIdx] + " " + dirLabelShort[dirIdx] + " " + memLabel[memIdx]
-                  add_scatter(blkSize, data[idx], color[devIdx * numDirs + dirIdx], marker[hostIdx * numMems + memIdx], tag, label)
+                  colorIdx = (devIdx * numNodes + hostIdx) % len(color)
+                  add_scatter(blkSize, data[idx], color[colorIdx], marker[dirIdx * numMems + memIdx], tag, label)
 
             #CASE 3: Each socket, each pattern, each host mem, each direction, all src/dest pairs
             tag = "cpu" + str(socket) + "_" + patternTag[patternIdx] + "_" + memTag[memIdx] + "_" + dirTag[dirIdx] + "_all_host_dev"
-            save_figure(tag, tag)
             
+            if (numDevices > 2):
+               save_figure(tag, tag, True)
+            else:
+               save_figure(tag, tag)
+                           
+
       #CASE 4: Each socket, each pattern, both direction, all host mems, all src/dest pair
       tag = "cpu" + str(socket) + "_" +  patternTag[patternIdx] + "_all_host_dev_dirs_mems"
-      save_figure(tag, tag)
+      save_figure(tag, tag, True)
    
       for dirIdx in range(0, numDirs):
          for memIdx in range(0, numMems):
@@ -237,11 +247,12 @@ for socket in range(0, numSockets):
                   #CASE 5: Each socket, each pattern, each direction, all host mems, all src/dest pair
                   tag = "cpu" + str(socket) + "_" +  patternTag[patternIdx] + "_" + dirTag[dirIdx] + "_all_host_dev_mems"
                   label = "Node " + str(hostIdx) + " " + device[devIdx] + " " + memLabel[memIdx]
-                  add_scatter(blkSize, data[idx], color[devIdx * numNodes + hostIdx], marker[hostIdx * numMems + memIdx], tag, label)
+                  colorIdx = (devIdx * numNodes + hostIdx) % len(color)
+                  add_scatter(blkSize, data[idx], color[colorIdx], marker[memIdx], tag, label)
 
          #CASE 5: Each socket, each pattern, each direction, all host mems, all src/dest pair
          tag = "cpu" + str(socket) + "_" +  patternTag[patternIdx] + "_" + dirTag[dirIdx] + "_all_host_dev_mems"
-         save_figure(tag, tag)
+         save_figure(tag, tag, True)
 
 #CASE 6: Each src/dest pair, each pattern, each direction, each host mem, all sockets
 #CASE 7: Each src/dest pair, each pattern, both directions, all host mems, all sockets
@@ -259,13 +270,15 @@ for hostIdx in range(0, numNodes):
  
                   #CASE 6: Each src/dest pair, each pattern, each direction, each host mem, all sockets
                   tag = "host" + str(hostIdx) + "_dev" + str(devIdx) + "_" + patternTag[patternIdx] + "_" + dirTag[dirIdx] + "_" + memTag[memIdx] + "_all_cpus"
-                  label = "CPU " + str(socket) + " Node " + str(hostIdx) + " " + device[devIdx]
-                  add_scatter(blkSize, data[idx], color[socket], marker[socket], tag, label)
+                  label = "CPU " + str(socket)
+                  colorIdx = socket % len(color)
+                  add_scatter(blkSize, data[idx], color[colorIdx], marker[socket], tag, label)
 
                   #CASE 7: Each src/dest pair, each pattern, both directions, all host mems, all sockets
                   tag = "host" + str(hostIdx) + "_dev" + str(devIdx) + "_" + patternTag[patternIdx] + "_all_cpus_dirs_mems"
                   label = "CPU " + str(socket) + " " + dirLabelShort[dirIdx] + " " + memLabel[memIdx]
-                  add_scatter(blkSize, data[idx], color[dirIdx * numMems + memIdx], marker[socket], tag, label)
+                  colorIdx = (socket * numMems * numDirs + memIdx * numDirs + dirIdx) % len(color) 
+                  add_scatter(blkSize, data[idx], color[colorIdx], marker[socket * numDirs + dirIdx], tag, label)
                   
                #CASE 6: Each src/dest pair, each pattern, each direction, each host mem, all sockets
                tag = "host" + str(hostIdx) + "_dev" + str(devIdx) + "_" + patternTag[patternIdx] + "_" + dirTag[dirIdx] + "_" + memTag[memIdx] + "_all_cpus"
@@ -273,6 +286,6 @@ for hostIdx in range(0, numNodes):
 
          #CASE 7: Each src/dest pair, each pattern, both directions, all host mems, all sockets
          tag = "host" + str(hostIdx) + "_dev" + str(devIdx) + "_" + patternTag[patternIdx] + "_all_cpus_dirs_mems"
-         save_figure(tag, tag)
+         save_figure(tag, tag, True)
 
 

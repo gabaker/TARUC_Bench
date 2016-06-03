@@ -102,7 +102,7 @@ else:
    saveType = "tt"
 
 #function for saving specific plot to file
-def save_figure(tag, title):
+def save_figure(tag, title, large_plot = False):
    plt.figure(tag)
    plt.xscale(xscale)
    plt.yscale(yscale)
@@ -111,11 +111,16 @@ def save_figure(tag, title):
    #plt.xlim(xmin=xmin)
    plt.xlim(xmax=xmax)
  
-   plt.title(title)
+   #plt.title(title)
    plt.ylabel(ylabel)
    plt.xlabel('Block Size (bytes)')
-   plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=10, labelspacing=0.50)
-   plt.savefig("bandwidth/p2p/" + saveType + "/" + tag + ".png", bbox_inches='tight', dpi=150)
+   
+   if (large_plot == True):
+      plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=10, labelspacing=0.50)
+   else:   
+      plt.legend(loc='upper left', bbox_to_anchor=(0.0,1.0), fontsize=10, labelspacing=0.50)
+
+   plt.savefig("bandwidth/p2p/" + saveType + "/" + tag + ".png", bbox_inches='tight', dpi=200)
    #plt.clf()
    return
 
@@ -192,7 +197,10 @@ for socket in range(0, numSockets):
 for socket in range(0, numSockets):
    # CASE 4: All Intra-gpu Transfers
    tag = "cpu" + str(socket) + "_" + "all_dev_intra_gpu_trans"
-   save_figure(tag, tag)
+   if (numDevices > 4):
+      save_figure(tag, tag, True)
+   else:
+      save_figure(tag, tag) 
 
    for srcDev in range(0, numDevices):
       for destDev in range(srcDev, numDevices):     
@@ -204,7 +212,7 @@ for socket in range(0, numSockets):
 
             # CASE 3: Each D2D Pair, All Transfer Types, Both Directions, All Sockets
             tag = "dev_" + str(srcDev) + "_" + str(destDev) + "_all_trans_types_dirs_cpus"
-            save_figure(tag, tag)
+            save_figure(tag, tag, True)
 
          for transIdx in range(0, numTransPerPair[srcDev][destDev]):
             

@@ -1343,7 +1343,85 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
          }      
       }
    }
-   
+
+   std::cout << "Testing Aggregate GPU-Device Bandwidth" << std::cout;
+   for (int mapIdx = 0; mapIdx < 2; ++mapIdx){
+      for (int numThreads = 1; numThreads <= 4 * topo.NumGPUs(); ++numThreads) {
+         
+         omp_set_num_threads(numThreads);
+         #pragma omp parallel
+         {
+            // Get local thread ID
+            int threadIdx = omp_get_thread_num();
+            void * __restrict__ hostBlk, * __restrict__ devBlk;
+            int node, devIdx;
+
+            devIdx = threadIdx % topo.NumGPUs();
+            if (mapIdx == 0) {
+               node = threadIdx % topo.NumNodes();
+            } else {
+               node = (threadIdx / topo.NumNodes()) % topo.NumSockets();
+            }           
+ 
+            // Pin Cores for execution and NUMA memory regions; set GPU device
+            topo.SetActiveDevice(devIdx);
+            topo.PinSocket(node); 
+            topo.PinNode(node);
+            
+            // Allocate Host/Device memory and set initial values
+            hostBlk = topo.AllocPinMemByNode(node, blockSize);
+            topo.SetHostMem(hostBlk, 1, blockSize);
+            devBlk = topo.AllocDeviceMem(devIdx, blockSize);
+            topo.SetDeviceMem(devBlk, 0, blockSize, devIdx);
+            
+            // Initialize local thread timer with CUDA event timing and wait for all threads to finish allocation steps
+            Timer threadTimer(false); 
+            #pragma omp barrier
+
+            threadTimer.StartTimer();
+             
+            for (int repCount = 0; repCount < params.numContRepeats; ++repCount) {
+               if (repCount % 2 == 0)
+                  MemCopyOp(devBlk, hostBlk, blockSize, HOST_PINNED_DEVICE_COPY, 0, 0, threadTimer.stream);
+               else
+                  MemCopyOp(hostBlk, devBlk, blockSize, DEVICE_HOST_PINNED_COPY, 0, 0, threadTimer.stream);
+            }
+            
+            threadTimer.StopTimer();     
+                             
+            // calculate thread local bandwidth
+            double time = (double) threadTimer.ElapsedTime() / (double) params.numContRepeats;
+            double bandwidth = ((double) blockSize / (double) pow(2.0, 30.0)) / (time * 1.0E-6);
+            
+            // place thread local bandwidth into bandwidth array 
+            threadBW[threadIdx] = bandwidth; 
+
+            // Wait for all threads to complete transfers and add thread bandwidths to array
+            #pragma omp barrier
+
+            // Calculate aggregate bandwidth and push thread bandwidths to data vector
+            #pragma omp single
+            {  
+               double aggBW = 0;
+               for (int i = 0; i < numThreads; ++i)
+                  aggBW += threadBW[i];
+
+               std::vector<float> testData;
+               testData.push_back(aggBW);
+                  
+               for (int i = 0; i < numThreads; ++i)
+                  testData.push_back(threadBW[i]);
+               data.push_back(testData);
+           
+            }
+            // Free thread local memory  
+            topo.FreePinMem(hostBlk, blockSize);
+            topo.FreeDeviceMem(devBlk, devIdx);
+
+         }
+      }
+   }
+      
    // Output results
    std::string dataFileName = "./results/contention/pcie/" + params.runTag + "_pcie_contention.csv";
    std::ofstream resultsFile(dataFileName.c_str());

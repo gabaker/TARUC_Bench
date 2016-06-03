@@ -57,13 +57,13 @@ print "Direction Tags: " + str(dirTag)
 
 def save_figure(tag, title, numTicks, subfolder):
    plt.figure(tag)
-   plt.title(title)
+   #plt.title(title)
    plt.ylim(ymax=ymax)
    plt.ylabel("Transfer Bandwidth (GB/s)")
    plt.xlabel('Number of Concurrent Threads')
    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=10, labelspacing=0.50)
    plt.xticks(np.arange(1, numTicks + 1)) 
-   plt.savefig("./contention/pcie/" + subfolder + title + ".png", bbox_inches='tight', dpi=150)
+   plt.savefig("./contention/pcie/" + subfolder + title + ".png", bbox_inches='tight', dpi=200)
    plt.clf()
    return
 
@@ -297,4 +297,33 @@ if (numGPUs > 1):
       # CASE 9: Each Direction, All Sockets
       tag = dirTag[dirIdx] + "_all_nodes"
       save_figure(tag, tag, numThreads, "single_node/")
+
+
+
+numThreads = 2 * numGPUs
+y = data[dataIdx:dataIdx + numThreads] 
+dataIdx += numThreads
+
+print y
+
+# Print Baseline graphs
+numBars = 1
+offset = 0.9
+shift = 0.0  - 0.45
+tag = "baseline1"
+add_chart(threads[0:numThreads] + shift, y, color[0], tag, "", offset)
+save_figure(tag, tag, numThreads, "")
+
+y = data[dataIdx:dataIdx + numThreads] 
+
+print y
+numBars = 1
+offset = 0.9
+shift = 0.0  - 0.45
+tag = "baseline2"
+add_chart(threads[0:numThreads] + shift, y, color[1], tag, "", offset)
+save_figure(tag, tag, numThreads, "")
+
+
+
 

@@ -52,8 +52,6 @@ avgData = data
 
 #set print and save parameters depending on bw or tt type of graphs
 xmax = int(blkSize[-1] * 1.2)
-xmin = blkSize[0]
-ymin = 0
 
 #for idx in range(1,numCols):
 
@@ -62,22 +60,22 @@ def save_figure(tag, title):
    plt.figure(tag)
    plt.xscale('log')
    plt.yscale('log')
-   plt.xlim(xmin=xmin)
+   plt.xlim(xmin=10)
    plt.xlim(xmax=xmax)
-   plt.ylim(ymin=ymin)
+   plt.ylim(ymin=0.0)
    #plt.ylim(ymax=ymax)
    
    #plt.title(title)
    plt.ylabel("Total Access Time (us)")
    plt.xlabel("Number of Doubles Accessed")
    plt.legend(loc='upper left', bbox_to_anchor=(0.0, 1.0), fontsize=10, labelspacing=0.50)
-   plt.savefig("random_access/" + tag + ".png", bbox_inches='tight', dpi=150, markersize=20)
+   plt.savefig("random_access/" + tag + ".png", bbox_inches='tight', dpi=200)
    plt.clf()
    return
 
 def add_scatter(x, y, color, mark, tag, label):
    plt.figure(tag)
-   plt.scatter(x, y, c = color, marker = mark, label = label, linewidth=0.25, s=10) 
+   plt.scatter(x, y, c = color, marker = mark, label = label, linewidth=0.25, s=12) 
    return
 
 # CASE 0: All 
