@@ -13,26 +13,26 @@ Test Access Patterns = true
 Burst Block Size (bytes) = 64000000
 -------------- Memory Overhead ---------------
 Run Memory Overhead Test = true
-Range Min (bytes) = 10
+Range Min (bytes) = 100
 Range Max (bytes) = 1500000000
 -------------- Host-Host Bandwidth -----------
 Run Host-Host Tests = true
-Range Min (bytes) = 10
+Range Min (bytes) = 100
 Range Max (bytes) = 1500000000
 ----------- Host-Device Bandwidth ------------
 Run Host-Device Tests = true
-Range Min (bytes) = 10
+Range Min (bytes) = 100
 Range Max (bytes) = 1500000000
 --------------- P2P Bandwidth ----------------
 Run P2P Tests = true
-Range Min (bytes) = 10
+Range Min (bytes) = 100
 Range Max (bytes) = 1500000000
 ------ Non-Uniform Random Memory Access ------
 Run NURMA Test = true
-Memory Skip Gap Size (doubles) = 654
+Memory Skip Gap Size (doubles) = 657
 Memory Block Size (doubles) = 200000000 
-Min # Random Accesses (doubles) = 1
-Max # Random Accesses (doubles) = 100000000
+Min # Random Accesses (doubles) = 100
+Max # Random Accesses (doubles) = 10000000
 ------------- Resource Congestion ------------
 Run Congestion Test = true
 # Repeated Operations = 50
