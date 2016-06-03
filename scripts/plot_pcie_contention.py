@@ -300,7 +300,7 @@ if (numGPUs > 1):
 
 
 
-numThreads = 2 * numGPUs
+numThreads = 4 * numGPUs
 y = data[dataIdx:dataIdx + numThreads] 
 dataIdx += numThreads
 
