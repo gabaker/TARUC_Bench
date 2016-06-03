@@ -12,31 +12,31 @@ Test Access Patterns = true
 # Steps Per Magnitude = 10
 Burst Block Size (bytes) = 64000000
 -------------- Memory Overhead ---------------
-Run Memory Overhead Test = true
+Run Memory Overhead Test = false
 Range Min (bytes) = 10
 Range Max (bytes) = 1500000000
 -------------- Host-Host Bandwidth -----------
-Run Host-Host Tests = true
+Run Host-Host Tests = false
 Range Min (bytes) = 10
 Range Max (bytes) = 1500000000
 ----------- Host-Device Bandwidth ------------
-Run Host-Device Tests = true
+Run Host-Device Tests = false
 Range Min (bytes) = 10
 Range Max (bytes) = 1500000000
 --------------- P2P Bandwidth ----------------
-Run P2P Tests = true
+Run P2P Tests = false
 Range Min (bytes) = 10
 Range Max (bytes) = 1500000000
 ------ Non-Uniform Random Memory Access ------
-Run NURMA Test = true
+Run NURMA Test = false
 Memory Skip Gap Size (doubles) = 654
 Memory Block Size (doubles) = 100000000 
 Min # Random Accesses (doubles) = 1
 Max # Random Accesses (doubles) = 10000000
 ------------- Resource Congestion ------------
 Run Congestion Test = true
-# Repeated Operations = 10
-Local Host Block Size (bytes) =  10000000
-QPI Host Block Size (bytes) = 10000000
-Host-Device Block Size (bytes) = 10000000
+# Repeated Operations = 50
+Local Host Block Size (bytes) =  10000
+QPI Host Block Size (bytes) = 10000
+Host-Device Block Size (bytes) = 50000000
 ----------------------------------------------
