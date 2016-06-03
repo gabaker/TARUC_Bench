@@ -1344,7 +1344,7 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
       }
    }
 
-   std::cout << "Testing Aggregate GPU-Device Bandwidth" << std::cout;
+   std::cout << "Testing Aggregate GPU-Device Bandwidth" << std::endl;
    for (int mapIdx = 0; mapIdx < 2; ++mapIdx){
       for (int numThreads = 1; numThreads <= 4 * topo.NumGPUs(); ++numThreads) {
          
