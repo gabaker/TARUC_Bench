@@ -1072,7 +1072,8 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
                {
                   // Get local thread ID
                   int threadIdx = omp_get_thread_num();
-                  void * __restrict__ hostBlk, * __restrict__ devBlk;
+                  void * __restrict__ hostBlkA, * __restrict__ devBlkA;
+                  void * __restrict__ hostBlkB, * __restrict__ devBlkB;
                   int node, core;
 
                   node = socketIdx;
@@ -1145,9 +1146,12 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
                  
                   }
                   // Free thread local memory  
-                  topo.FreePinMem(hostBlk, blockSize);
-                  topo.FreeDeviceMem(devBlk, devIdx);
- 
+                  topo.FreePinMem(hostBlkA, blockSize);
+                  topo.FreeDeviceMem(devBlkA, devIdx);
+                  topo.FreePinMem(hostBlkB, blockSize);
+                  topo.FreeDeviceMem(devBlkB, devIdx);
+
+
                }
             }
          }      
@@ -1177,7 +1181,8 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
                      {
                         // Get local thread ID
                         int threadIdx = omp_get_thread_num();
-                        void * hostBlk, * devBlk;
+                        void * __restrict__ hostBlkA, * __restrict__ devBlkA;
+                        void * __restrict__ hostBlkB, * __restrict__ devBlkB;
                         int socket = socketIdx;
                         int core = threadIdx % topo.NumCoresPerSocket();
                         
@@ -1195,15 +1200,15 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
                         topo.PinNode(socket);
                         
                         // Allocate Host/Device Memory
-                        hostBlkA = topo.AllocPinMemByNode(node, blockSize);
+                        hostBlkA = topo.AllocPinMemByNode(socket, blockSize);
                         topo.SetHostMem(hostBlkA, 2, blockSize);
-                        devBlkA = topo.AllocDeviceMem(devIdx, blockSize);
-                        topo.SetDeviceMem(devBlkA, 0, blockSize, devIdx);
+                        devBlkA = topo.AllocDeviceMem(device, blockSize);
+                        topo.SetDeviceMem(devBlkA, 0, blockSize, device);
 
-                        hostBlkB = topo.AllocPinMemByNode(node, blockSize);
+                        hostBlkB = topo.AllocPinMemByNode(socket, blockSize);
                         topo.SetHostMem(hostBlkB, 1, blockSize);
-                        devBlkB = topo.AllocDeviceMem(devIdx, blockSize);
-                        topo.SetDeviceMem(devBlkB, 0, blockSize, devIdx);
+                        devBlkB = topo.AllocDeviceMem(device, blockSize);
+                        topo.SetDeviceMem(devBlkB, 0, blockSize, device);
                   
                         // Initialize local thread timer with CUDA event timing and wait for all threads to finish allocation steps
                         Timer threadTimer(false); 
@@ -1226,9 +1231,12 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
                         
                         threadTimer.StopTimer();     
                         
-                        topo.FreePinMem(hostBlk, blockSize);
-                        topo.FreeDeviceMem(devBlk, device);
-                        
+                        topo.FreePinMem(hostBlkA, blockSize);
+                        topo.FreeDeviceMem(devBlkA, device);
+                        topo.FreePinMem(hostBlkB, blockSize);
+                        topo.FreeDeviceMem(devBlkB, device);
+
+                              
                         // calculate thread local bandwidth
                         double time = (double) threadTimer.ElapsedTime() / (double) params.numContRepeats;
                         double bandwidth = ((double) blockSize / (double) pow(2.0, 30.0)) / (time * 1.0E-6);
@@ -1277,8 +1285,9 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
                {
                   // Get local thread ID
                   int threadIdx = omp_get_thread_num();
-                  void * hostBlk, * devBlk;
-                  
+                  void * __restrict__ hostBlkA, * __restrict__ devBlkA;
+                  void * __restrict__ hostBlkB, * __restrict__ devBlkB;
+                       
                   int socket = socketIdx;
                   int core = threadIdx % topo.NumCoresPerSocket();
                   int devIdx = threadIdx % topo.NumGPUs();
@@ -1288,12 +1297,12 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
                   topo.PinNode(socket);
                   
                   // Allocate Device Memory
-                  hostBlkA = topo.AllocPinMemByNode(node, blockSize);
+                  hostBlkA = topo.AllocPinMemByNode(socket, blockSize);
                   topo.SetHostMem(hostBlkA, 2, blockSize);
                   devBlkA = topo.AllocDeviceMem(devIdx, blockSize);
                   topo.SetDeviceMem(devBlkA, 0, blockSize, devIdx);
 
-                  hostBlkB = topo.AllocPinMemByNode(node, blockSize);
+                  hostBlkB = topo.AllocPinMemByNode(socket, blockSize);
                   topo.SetHostMem(hostBlkB, 1, blockSize);
                   devBlkB = topo.AllocDeviceMem(devIdx, blockSize);
                   topo.SetDeviceMem(devBlkB, 0, blockSize, devIdx);
@@ -1343,8 +1352,11 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
                      data.push_back(testData);
                   } 
 
-                  topo.FreePinMem(hostBlk, blockSize);
-                  topo.FreeDeviceMem(devBlk, devIdx);
+                  topo.FreePinMem(hostBlkA, blockSize);
+                  topo.FreeDeviceMem(devBlkA, devIdx);
+                  topo.FreePinMem(hostBlkB, blockSize);
+                  topo.FreeDeviceMem(devBlkB, devIdx);
+
                }
             }
          }      
@@ -1429,8 +1441,12 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
            
             }
             // Free thread local memory  
-            topo.FreePinMem(hostBlk, blockSize);
-            topo.FreeDeviceMem(devBlk, devIdx);
+            topo.FreePinMem(hostBlkA, blockSize);
+            topo.FreeDeviceMem(devBlkA, devIdx);
+            topo.FreePinMem(hostBlkB, blockSize);
+            topo.FreeDeviceMem(devBlkB, devIdx);
+
+
 
          }
       }
