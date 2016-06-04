@@ -28,13 +28,13 @@ Run P2P Tests = false
 Range Min (bytes) = 10
 Range Max (bytes) = 1500000000
 ------ Non-Uniform Random Memory Access ------
-Run NURMA Test = false
-Memory Skip Gap Size (doubles) = 654
-Memory Block Size (doubles) = 100000000 
-Min # Random Accesses (doubles) = 1
+Run NURMA Test = true
+Memory Skip Gap Size (doubles) = 657
+Memory Block Size (doubles) = 10000000 
+Min # Random Accesses (doubles) = 100
 Max # Random Accesses (doubles) = 10000000
 ------------- Resource Congestion ------------
-Run Congestion Test = true
+Run Congestion Test = false
 # Repeated Operations = 50
 Local Host Block Size (bytes) =  100000000
 QPI Host Block Size (bytes) = 100000000
