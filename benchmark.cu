@@ -211,9 +211,9 @@ void TestMemoryOverhead(BenchParams &params, SystemTopo &topo) {
             
             // Repeat each memory block size allocation/deallocation reIdx number of times
             for (int reIdx = 0; reIdx < params.numStepRepeats; reIdx++) {
-               hostFreeTime += TimedMemManageOp(&hostPageMem, chunkSize, HOST_MALLOC);
+               hostAllocTime += TimedMemManageOp(&hostPageMem, chunkSize, HOST_MALLOC);
                SetMemBlock(topo, hostPageMem, chunkSize, 0, PAGE);
-               hostAllocTime += TimedMemManageOp(&hostPageMem, chunkSize, HOST_FREE);
+               hostFreeTime += TimedMemManageOp(&hostPageMem, chunkSize, HOST_FREE);
 
                if (params.testAllMemTypes) {
                   pinAllocTime += TimedMemManageOp(&hostPinnedMem, chunkSize, HOST_PINNED_MALLOC);
