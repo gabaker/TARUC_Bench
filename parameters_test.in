@@ -38,5 +38,5 @@ Run Congestion Test = true
 # Repeated Operations = 50
 Local Host Block Size (bytes) =  10000
 QPI Host Block Size (bytes) = 10000
-Host-Device Block Size (bytes) = 50000000
+Host-Device Block Size (bytes) = 50000000 
 ----------------------------------------------
