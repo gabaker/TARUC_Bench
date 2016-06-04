@@ -51,6 +51,7 @@ print "Operation Tags: " + str(opTag)
 def save_figure(tag, title, numTicks):
    plt.figure(tag)
    #plt.title(title)
+   #plt.ylim(ymax=50)
    plt.ylim(ymax=ymax)
 
    #plt.autoscale(tight=False)
