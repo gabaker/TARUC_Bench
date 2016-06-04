@@ -636,7 +636,7 @@ void NURMATest(BenchParams &params, SystemTopo &topo) {
 					double * __restrict__ destBlk = NULL;
 
 					// Pin, allocate and set source mem block to srcNode 
-					topo.PinNode(srcNode);
+					//topo.PinNode(srcNode);
 					if (memType == 0)
 						srcBlk = (double *) topo.AllocMemByNode(srcNode, blockSize);
 					else 
@@ -644,7 +644,7 @@ void NURMATest(BenchParams &params, SystemTopo &topo) {
 					topo.SetHostMem(srcBlk, 10, blockSize);
 					
 					// Pin, allocate and set dest node mem block to destNode 
-					topo.PinNode(destNode);
+					//topo.PinNode(destNode);
 					if (memType == 0) 
 						destBlk = (double *) topo.AllocMemByNode(destNode, blockSize);
 					else 
@@ -933,10 +933,10 @@ void ContentionSubTestQPI(BenchParams &params, SystemTopo &topo) {
                } 
                
                // pin threads to execution space
-               topo.PinCoreBySocket(destNode, core);
+               topo.PinCoreBySocket(srcNode, core);
               
                // Allocate thread local memory to correct NUMA node
-               AllocMemBlock(topo, (void **) &srcBlk, blockSize * sizeof(double), PAGE, srcNode);
+               AllocMemBlock(topo, (void **) &srcBlk, blockSize * sizeof(double), PAGE, destNode);
                AllocMemBlock(topo, (void **) &destBlk, blockSize * sizeof(double), PAGE, destNode);
                if (opIdx != 0)
                   AllocMemBlock(topo, (void **) &addBlk, blockSize * sizeof(double), PAGE, destNode);
