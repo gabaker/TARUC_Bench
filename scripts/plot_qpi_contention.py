@@ -52,7 +52,7 @@ print "Transfer Direction Labels: " + str(dirLabel)
 
 def save_figure(tag, title, numTicks):
    plt.figure(tag)
-   plt.title(title)
+   #plt.title(title)
    plt.ylim(ymax=ymax)
 
    plt.ylabel("Transfer Bandwidth (GB/s)")

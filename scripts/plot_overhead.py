@@ -101,8 +101,8 @@ for cpu in range(0, numSockets):
          # CASE 0
          allocLabel = "alloc_all_cpu_numa_mem_dev"
          freeLabel = "free_all_cpu_numa_mem_dev"
-         allocTag = memTypes[hostType] + " CPU " + str(cpu) + " NUMA " + str(node)
-         freeTag = memTypes[hostType] + " CPU " + str(cpu) + " NUMA " + str(node)
+         allocTag = "CPU " + str(cpu) + " Node " + str(node) + " " + memTypes[hostType] 
+         freeTag = "CPU " + str(cpu) + " Node " + str(node) + " " + memTypes[hostType] 
          colorIdx = (cpu * numNodes + node) % len(color)
          add_scatter(blkSize, allocData[idx], color[colorIdx], marker[cpu], allocTag, allocLabel)     
          add_scatter(blkSize, freeData[idx], color[colorIdx], marker[cpu], freeTag, freeLabel)     
@@ -110,8 +110,8 @@ for cpu in range(0, numSockets):
          # CASE 1
          allocLabel = "alloc_all_cpu_numa_mem_no_dev"
          freeLabel = "free_all_cpu_numa_mem_no_dev"
-         allocTag = memTypes[hostType] + " CPU " + str(cpu) + " NUMA " + str(node)
-         freeTag = memTypes[hostType] + " CPU " + str(cpu) + " NUMA " + str(node)
+         allocTag = "CPU " + str(cpu) + " Node " + str(node) + " " + memTypes[hostType] 
+         freeTag = "CPU " + str(cpu) + " Node " + str(node) + " " + memTypes[hostType]
          colorIdx = (cpu * numNodes * numHostMemTypes + node * numHostMemTypes + hostType) % len(color)
          add_scatter(blkSize, allocData[idx], color[colorIdx], marker[hostType], allocTag, allocLabel)     
          add_scatter(blkSize, freeData[idx], color[colorIdx], marker[hostType], freeTag, freeLabel)     
@@ -119,8 +119,8 @@ for cpu in range(0, numSockets):
          # CASE 2
          allocLabel = "alloc_cpu" + str(cpu) + "_all_numa_mem_dev"
          freeLabel = "free_cpu" + str(cpu) + "_all_numa_mem_dev"
-         allocTag = memTypes[hostType] + " NUMA " + str(node)
-         freeTag = memTypes[hostType] + " NUMA " + str(node)
+         allocTag = "Node " + str(node) + " " + memTypes[hostType]
+         freeTag = "Node " + str(node) + " " + memTypes[hostType]
          colorIdx = (node * numHostMemTypes + hostType) % len(color)
          add_scatter(blkSize, allocData[idx], color[colorIdx], marker[hostType], allocTag, allocLabel)     
          add_scatter(blkSize, freeData[idx], color[colorIdx], marker[hostType], freeTag, freeLabel)     
@@ -128,8 +128,8 @@ for cpu in range(0, numSockets):
          # CASE 3
          allocLabel = "alloc_cpu" + str(cpu) + "_all_numa_mem_no_dev"
          freeLabel = "free_cpu" + str(cpu) + "_all_numa_mem_no_dev"
-         allocTag = memTypes[hostType] + " NUMA " + str(node)
-         freeTag = memTypes[hostType] + " NUMA " + str(node)
+         allocTag = "Node " + str(node) + " " + memTypes[hostType]
+         freeTag = "Node " + str(node) + " " + memTypes[hostType]
          colorIdx = (node * numHostMemTypes + hostType) % len(color)
          add_scatter(blkSize, allocData[idx], color[colorIdx], marker[hostType], allocTag, allocLabel)     
          add_scatter(blkSize, freeData[idx], color[colorIdx], marker[hostType], freeTag, freeLabel)     
@@ -254,8 +254,8 @@ for node in range(0, numNodes):
          # CASE 7
          allocLabel = "alloc_node" + str(node) + "_all_cpu_dev_mem"
          freeLabel = "free_node" + str(node) + "_all_cpu_dev_mem"
-         allocTag = memTypes[hostType] + " CPU " + str(cpu)
-         freeTag = memTypes[hostType] + " CPU " + str(cpu)
+         allocTag = "CPU " + str(cpu) + " " + memTypes[hostType]
+         freeTag = "CPU " + str(cpu) + " " + memTypes[hostType]
          colorIdx = (cpu * numHostMemTypes + hostType) % len(color)
          add_scatter(blkSize, allocData[idx], color[colorIdx], marker[hostType], allocTag, allocLabel)     
          add_scatter(blkSize, freeData[idx], color[colorIdx], marker[hostType], freeTag, freeLabel)     
@@ -263,8 +263,8 @@ for node in range(0, numNodes):
          # CASE 8
          allocLabel = "alloc_node" + str(node) + "_all_cpu_mem_no_dev"
          freeLabel = "free_node" + str(node) + "_all_cpu_mem_no_dev"
-         allocTag = memTypes[hostType] + " CPU " + str(cpu)
-         freeTag = memTypes[hostType] + " CPU " + str(cpu)
+         allocTag = "CPU " + str(cpu) + " " + memTypes[hostType]
+         freeTag = "CPU " + str(cpu) + " " + memTypes[hostType]
          colorIdx = (cpu * numHostMemTypes + hostType) % len(color)
          add_scatter(blkSize, allocData[idx], color[colorIdx], marker[cpu], allocTag, allocLabel)     
          add_scatter(blkSize, freeData[idx], color[colorIdx], marker[cpu], freeTag, freeLabel)     
