@@ -52,6 +52,7 @@ avgData = data
 
 #set print and save parameters depending on bw or tt type of graphs
 xmax = int(blkSize[-1] * 1.2)
+xmin = int(blkSize[0])
 
 #for idx in range(1,numCols):
 
@@ -60,9 +61,9 @@ def save_figure(tag, title):
    plt.figure(tag)
    plt.xscale('log')
    plt.yscale('log')
-   plt.xlim(xmin=10)
+   plt.xlim(xmin=xmin)
    plt.xlim(xmax=xmax)
-   plt.ylim(ymin=0.0)
+   plt.ylim(ymin=1.0)
    #plt.ylim(ymax=ymax)
    
    #plt.title(title)

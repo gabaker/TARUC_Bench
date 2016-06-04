@@ -188,7 +188,7 @@ if (numGPUs > 1):
                   
                   label = "Node " + str(cpuIdx) + "\n" + devices[devIdx] + "\n" + dirLabel[dirIdx]
                   tag = "node" + str(cpuIdx) + "_" + dirTag[dirIdx] + "_all_dev_pairs"
-                  if (((cpuIdx + 1) == numCPUs) & (numCPUs > 1)):
+                  if (((cpuIdx) == numCPUs) & (numCPUs > 1)):
                      label = "All Nodes\n" + devices[devIdx] + "\n" + dirLabel[dirIdx]
                      tag = "nodes_test_" + dirTag[dirIdx] + "_all_dev_pairs"
                   
