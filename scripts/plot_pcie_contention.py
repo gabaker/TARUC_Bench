@@ -41,7 +41,7 @@ dirLabel = ["Host-to-Device","Device-to-Host","Bidirectional"]
 dirLabelShort = ["H2D","D2H","Both"]
 
 data = np.genfromtxt(str(sys.argv[1]), delimiter=",", skip_header=1, usecols=0)
-ymax = np.max(data)
+ymax = np.max(data) * 1.1
 threads = np.arange(1, numThreads + 1)
 
 print ("\nPlotting results from file " + text.italic + text.bold + text.red + sys.argv[1] + ""
