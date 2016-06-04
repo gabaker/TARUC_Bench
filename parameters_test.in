@@ -36,7 +36,7 @@ Max # Random Accesses (doubles) = 10000000
 ------------- Resource Congestion ------------
 Run Congestion Test = true
 # Repeated Operations = 50
-Local Host Block Size (bytes) =  10000
-QPI Host Block Size (bytes) = 10000
+Local Host Block Size (bytes) =  100000000
+QPI Host Block Size (bytes) = 100000000
 Host-Device Block Size (bytes) = 50000000 
 ----------------------------------------------
