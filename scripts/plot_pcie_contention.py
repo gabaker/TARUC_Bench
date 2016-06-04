@@ -101,7 +101,7 @@ for devIdx in range(0, numGPUs):
          # CASE 1: Each Device, Each Direction, All Sockets
          tag = "dev" + str(devIdx) + "_" + dirTag[dirIdx] + "_all_nodes"
          label = "Node " + str(cpuIdx) + "\n" + devices[devIdx] + "\n" + dirLabel[dirIdx]
-         if (((cpuIdx + 1) == numCPUs) & (numCPUs > 1)):
+         if (((cpuIdx) == numCPUs) & (numCPUs > 1)):
             label = "All Nodes\n" + devices[devIdx] + "\n" + dirLabel[dirIdx]
 
          numBars = numCPUTests
@@ -112,7 +112,7 @@ for devIdx in range(0, numGPUs):
          # CASE 2: Each Device, Each Socket, All Directions 
          label = "Node " + str(cpuIdx) + "\n" + devices[devIdx] + "\n" + dirLabel[dirIdx]
          tag = "node" + str(cpuIdx) + "_dev" + str(devIdx) + "_all_copy_dirs"
-         if (((cpuIdx + 1) == numCPUs) & (numCPUs > 1)):
+         if (((cpuIdx) == numCPUs) & (numCPUs > 1)):
             label = "All Nodes\n" + devices[devIdx] + "\n" + dirLabel[dirIdx]
             tag = "nodes_test_dev" + str(devIdx) + "_all_copy_dirs" 
          
@@ -133,7 +133,7 @@ for devIdx in range(0, numGPUs):
    for cpuIdx in range(0, numCPUTests):
       # CASE 2: Each Device, Each Socket, All Directions 
       tag = "node" + str(cpuIdx) + "_dev" + str(devIdx) + "_all_copy_dirs"
-      if (((cpuIdx + 1) == numCPUs) & (numCPUs > 1)):
+      if (((cpuIdx) == numCPUs) & (numCPUs > 1)):
          tag = "nodes_test_dev" + str(devIdx) + "_all_copy_dirs"
       save_figure(tag, tag, numThreads, "single_gpu/")
 
@@ -160,7 +160,7 @@ if (numGPUs > 1):
                
                label = "Node " + str(cpuIdx) + "\n" + devices[devIdx] + "\n" + dirLabel[dirIdx]
                tag = "node" + str(cpuIdx) + "_dev_pair_" + str(devIdx1) + "_" + str(devIdx2) + "_" + dirTag[dirIdx]
-               if (((cpuIdx + 1) == numCPUs) & (numCPUs > 1)):
+               if (((cpuIdx) == numCPUs) & (numCPUs > 1)):
                   label = "All Nodes\n" + devices[devIdx] + "\n" + dirLabel[dirIdx]
                   tag = "nodes_test_dev_pair_" + str(devIdx1) + "_" + str(devIdx2) + "_" + dirTag[dirIdx]
                
@@ -174,7 +174,7 @@ if (numGPUs > 1):
                
                label = "Node " + str(cpuIdx) + "\n" + devices[devIdx] + "\n" + dirLabel[dirIdx]
                tag = "node" + str(cpuIdx) + "_dev_pair_" + str(devIdx1) + "_" + str(devIdx2) + "_all_copy_dirs"
-               if (((cpuIdx + 1) == numCPUs) & (numCPUs > 1)):
+               if (((cpuIdx) == numCPUs) & (numCPUs > 1)):
                   label = "All Nodes\n" + devices[devIdx] + "\n" + dirLabel[dirIdx]
                   tag = "nodes_test_dev_pair_" + str(devIdx1) + "_" + str(devIdx2) + "_all_copy_dirs"
                
@@ -201,7 +201,7 @@ if (numGPUs > 1):
                
                label = "Node " + str(cpuIdx) + "\n" + devices[devIdx] + "\n" + dirLabel[dirIdx]
                tag = "dev_pair_" + str(devIdx1) + "_" + str(devIdx2) + "_" + dirTag[dirIdx] + "_all_nodes" 
-               if (((cpuIdx + 1) == numCPUs) & (numCPUs > 1)):
+               if (((cpuIdx) == numCPUs) & (numCPUs > 1)):
                   label = "All Nodes\n" + devices[devIdx] + "\n" + dirLabel[dirIdx]
                
                add_chart(threads + shift, y, color[cpuIdx], tag, label, offset)
@@ -214,7 +214,7 @@ if (numGPUs > 1):
 
             # CASE 4: Each Node, Each Device Pair, All Direction
             tag = "node" + str(cpuIdx) + "_dev_pair_" + str(devIdx1) + "_" + str(devIdx2) + "_all_copy_dirs"
-            if (((cpuIdx + 1) == numCPUs) & (numCPUs > 1)):
+            if (((cpuIdx) == numCPUs) & (numCPUs > 1)):
                tag = "nodes_test_dev_pair_" + str(devIdx1) + "_" + str(devIdx2) + "_all_copy_dirs"
             save_figure(tag, tag, numThreads, "gpu_pair/")
 
@@ -225,7 +225,7 @@ if (numGPUs > 1):
             
             # CASE 5: Each Node, Each Direction, All Device Pairs
             tag = "node" + str(cpuIdx) + "_" + dirTag[dirIdx] + "_all_dev_pairs"
-            if (((cpuIdx + 1) == numCPUs) & (numCPUs > 1)):
+            if (((cpuIdx) == numCPUs) & (numCPUs > 1)):
                tag = "nodes_test_" + dirTag[dirIdx] + "_all_dev_pairs"
             save_figure(tag, tag, numThreads, "gpu_pair/")
 

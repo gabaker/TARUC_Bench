@@ -926,7 +926,7 @@ void ContentionSubTestQPI(BenchParams &params, SystemTopo &topo) {
                   destNode = 1;
                   core = threadIdx % topo.NumCoresPerSocket();
                
-               } else if (copyDir == 1) { // bidirectional; alternate src and dest nodes for each thread
+               } else { // bidirectional; alternate src and dest nodes for each thread
                   srcNode = threadIdx % 2; 
                   destNode = (threadIdx + 1) % 2; 
                   core = (threadIdx / 2) % topo.NumCoresPerSocket();
@@ -1088,11 +1088,16 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
                   topo.PinNode(node);
                   
                   // Allocate Host/Device memory and set initial values
-                  devBlk = topo.AllocDeviceMem(devIdx, blockSize);
-                  hostBlk = topo.AllocPinMemByNode(node, blockSize);
-                  topo.SetHostMem(hostBlk, 1, blockSize);
-                  topo.SetDeviceMem(devBlk, 0, blockSize, devIdx);
-                  
+                  hostBlkA = topo.AllocPinMemByNode(node, blockSize);
+                  topo.SetHostMem(hostBlkA, 2, blockSize);
+                  devBlkA = topo.AllocDeviceMem(devIdx, blockSize);
+                  topo.SetDeviceMem(devBlkA, 0, blockSize, devIdx);
+
+                  hostBlkB = topo.AllocPinMemByNode(node, blockSize);
+                  topo.SetHostMem(hostBlkB, 1, blockSize);
+                  devBlkB = topo.AllocDeviceMem(devIdx, blockSize);
+                  topo.SetDeviceMem(devBlkB, 0, blockSize, devIdx);
+            
                   // Initialize local thread timer with CUDA event timing and wait for all threads to finish allocation steps
                   Timer threadTimer(false); 
                   #pragma omp barrier
@@ -1101,14 +1106,14 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
                    
                   for (int repCount = 0; repCount < params.numContRepeats; ++repCount) {
                      if (dirIdx == 0) {
-                        MemCopyOp(devBlk, hostBlk, blockSize, HOST_PINNED_DEVICE_COPY, 0, 0, threadTimer.stream);
+                        MemCopyOp(devBlkA, hostBlkA, blockSize, HOST_PINNED_DEVICE_COPY, 0, 0, threadTimer.stream);
                      } else if (dirIdx == 1) { 
-                        MemCopyOp(hostBlk, devBlk, blockSize, DEVICE_HOST_PINNED_COPY, 0, 0, threadTimer.stream);
+                        MemCopyOp(hostBlkA, devBlkA, blockSize, DEVICE_HOST_PINNED_COPY, 0, 0, threadTimer.stream);
                      } else {
                         if (repCount % 2)
-                           MemCopyOp(devBlk, hostBlk, blockSize, HOST_PINNED_DEVICE_COPY, 0, 0, threadTimer.stream);
+                           MemCopyOp(devBlkA, hostBlkA, blockSize, HOST_PINNED_DEVICE_COPY, 0, 0, threadTimer.stream);
                         else
-                           MemCopyOp(hostBlk, devBlk, blockSize, DEVICE_HOST_PINNED_COPY, 0, 0, threadTimer.stream);
+                           MemCopyOp(hostBlkB, devBlkB, blockSize, DEVICE_HOST_PINNED_COPY, 0, 0, threadTimer.stream);
                      }
                   }
                   
@@ -1190,13 +1195,16 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
                         topo.PinNode(socket);
                         
                         // Allocate Host/Device Memory
-                        devBlk = topo.AllocDeviceMem(device, blockSize);
-                        hostBlk = topo.AllocPinMemByNode(socket, blockSize);
-                       
-                        // Initialize Host/Device Memory 
-                        topo.SetHostMem(hostBlk, 1, blockSize);
-                        topo.SetDeviceMem(devBlk, 0, blockSize, device);
-            
+                        hostBlkA = topo.AllocPinMemByNode(node, blockSize);
+                        topo.SetHostMem(hostBlkA, 2, blockSize);
+                        devBlkA = topo.AllocDeviceMem(devIdx, blockSize);
+                        topo.SetDeviceMem(devBlkA, 0, blockSize, devIdx);
+
+                        hostBlkB = topo.AllocPinMemByNode(node, blockSize);
+                        topo.SetHostMem(hostBlkB, 1, blockSize);
+                        devBlkB = topo.AllocDeviceMem(devIdx, blockSize);
+                        topo.SetDeviceMem(devBlkB, 0, blockSize, devIdx);
+                  
                         // Initialize local thread timer with CUDA event timing and wait for all threads to finish allocation steps
                         Timer threadTimer(false); 
                         #pragma omp barrier
@@ -1205,14 +1213,14 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
           
                         for (int repCount = 0; repCount < params.numContRepeats; repCount++) {
                            if (dirIdx == 0) {
-                              MemCopyOp(devBlk, hostBlk, blockSize, HOST_PINNED_DEVICE_COPY, 0, 0, threadTimer.stream);
+                              MemCopyOp(devBlkA, hostBlkA, blockSize, HOST_PINNED_DEVICE_COPY, 0, 0, threadTimer.stream);
                            } else if (dirIdx == 1) { 
-                              MemCopyOp(hostBlk, devBlk, blockSize, DEVICE_HOST_PINNED_COPY, 0, 0, threadTimer.stream);
+                              MemCopyOp(hostBlkA, devBlkA, blockSize, DEVICE_HOST_PINNED_COPY, 0, 0, threadTimer.stream);
                            } else {
                               if (repCount % 2)
-                                 MemCopyOp(devBlk, hostBlk, blockSize, HOST_PINNED_DEVICE_COPY, 0, 0, threadTimer.stream);
+                                 MemCopyOp(devBlkA, hostBlkA, blockSize, HOST_PINNED_DEVICE_COPY, 0, 0, threadTimer.stream);
                               else
-                                 MemCopyOp(hostBlk, devBlk, blockSize, DEVICE_HOST_PINNED_COPY, 0, 0, threadTimer.stream);
+                                 MemCopyOp(hostBlkB, devBlkB, blockSize, DEVICE_HOST_PINNED_COPY, 0, 0, threadTimer.stream);
                            }
                         }
                         
@@ -1280,13 +1288,16 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
                   topo.PinNode(socket);
                   
                   // Allocate Device Memory
-                  devBlk = topo.AllocDeviceMem(devIdx, blockSize);
-                  hostBlk = topo.AllocPinMemByNode(socket, blockSize);
+                  hostBlkA = topo.AllocPinMemByNode(node, blockSize);
+                  topo.SetHostMem(hostBlkA, 2, blockSize);
+                  devBlkA = topo.AllocDeviceMem(devIdx, blockSize);
+                  topo.SetDeviceMem(devBlkA, 0, blockSize, devIdx);
 
-                  // Initialize Device Memory
-                  topo.SetHostMem(hostBlk, 1, blockSize);
-                  topo.SetDeviceMem(devBlk, 0, blockSize, devIdx);
-                 
+                  hostBlkB = topo.AllocPinMemByNode(node, blockSize);
+                  topo.SetHostMem(hostBlkB, 1, blockSize);
+                  devBlkB = topo.AllocDeviceMem(devIdx, blockSize);
+                  topo.SetDeviceMem(devBlkB, 0, blockSize, devIdx);
+                        
                   // Initialize timer and wait for all threads to finish allocation steps 
                   Timer threadTimer(false); 
                   #pragma omp barrier
@@ -1295,14 +1306,14 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
     
                   for (int repCount = 0; repCount < params.numContRepeats; repCount++) {
                      if (dirIdx == 0) {
-                        MemCopyOp(devBlk, hostBlk, blockSize, HOST_PINNED_DEVICE_COPY, 0, 0, threadTimer.stream);
+                        MemCopyOp(devBlkA, hostBlkA, blockSize, HOST_PINNED_DEVICE_COPY, 0, 0, threadTimer.stream);
                      } else if (dirIdx == 1) { 
-                        MemCopyOp(hostBlk, devBlk, blockSize, DEVICE_HOST_PINNED_COPY, 0, 0, threadTimer.stream);
+                        MemCopyOp(hostBlkA, devBlkA, blockSize, DEVICE_HOST_PINNED_COPY, 0, 0, threadTimer.stream);
                      } else {
                         if (repCount % 2)
-                           MemCopyOp(devBlk, hostBlk, blockSize, HOST_PINNED_DEVICE_COPY, 0, 0, threadTimer.stream);
+                           MemCopyOp(devBlkA, hostBlkA, blockSize, HOST_PINNED_DEVICE_COPY, 0, 0, threadTimer.stream);
                         else
-                           MemCopyOp(hostBlk, devBlk, blockSize, DEVICE_HOST_PINNED_COPY, 0, 0, threadTimer.stream);
+                           MemCopyOp(hostBlkB, devBlkB, blockSize, DEVICE_HOST_PINNED_COPY, 0, 0, threadTimer.stream);
                      }
                   }
                   
@@ -1349,7 +1360,8 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
          {
             // Get local thread ID
             int threadIdx = omp_get_thread_num();
-            void * __restrict__ hostBlk, * __restrict__ devBlk;
+            void * __restrict__ hostBlkA, * __restrict__ devBlkA;
+            void * __restrict__ hostBlkB, * __restrict__ devBlkB;
             int node, devIdx;
 
             devIdx = threadIdx % topo.NumGPUs();
@@ -1365,10 +1377,16 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
             topo.PinNode(node);
             
             // Allocate Host/Device memory and set initial values
-            hostBlk = topo.AllocPinMemByNode(node, blockSize);
-            topo.SetHostMem(hostBlk, 1, blockSize);
-            devBlk = topo.AllocDeviceMem(devIdx, blockSize);
-            topo.SetDeviceMem(devBlk, 0, blockSize, devIdx);
+            hostBlkA = topo.AllocPinMemByNode(node, blockSize);
+            topo.SetHostMem(hostBlkA, 2, blockSize);
+            devBlkA = topo.AllocDeviceMem(devIdx, blockSize);
+            topo.SetDeviceMem(devBlkA, 0, blockSize, devIdx);
+
+            hostBlkB = topo.AllocPinMemByNode(node, blockSize);
+            topo.SetHostMem(hostBlkB, 1, blockSize);
+            devBlkB = topo.AllocDeviceMem(devIdx, blockSize);
+            topo.SetDeviceMem(devBlkB, 0, blockSize, devIdx);
+ 
             
             // Initialize local thread timer with CUDA event timing and wait for all threads to finish allocation steps
             Timer threadTimer(false); 
@@ -1378,9 +1396,9 @@ void ContentionSubTestPCIe(BenchParams &params, SystemTopo &topo) {
              
             for (int repCount = 0; repCount < params.numContRepeats; ++repCount) {
                if (repCount % 2 == 0)
-                  MemCopyOp(devBlk, hostBlk, blockSize, HOST_PINNED_DEVICE_COPY, 0, 0, threadTimer.stream);
+                  MemCopyOp(devBlkA, hostBlkA, blockSize, HOST_PINNED_DEVICE_COPY, 0, 0, threadTimer.stream);
                else
-                  MemCopyOp(hostBlk, devBlk, blockSize, DEVICE_HOST_PINNED_COPY, 0, 0, threadTimer.stream);
+                  MemCopyOp(hostBlkB, devBlkB, blockSize, DEVICE_HOST_PINNED_COPY, 0, 0, threadTimer.stream);
             }
             
             threadTimer.StopTimer();     
