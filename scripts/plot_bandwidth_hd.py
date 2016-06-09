@@ -212,7 +212,7 @@ for socket in range(0, numSockets):
                   #CASE 3: Each socket, each pattern, each host mem, each direction, all src/dest pairs
                   tag = "cpu" + str(socket) + "_" + patternTag[patternIdx] + "_" + memTag[memIdx] + "_" + dirTag[dirIdx] + "_all_host_dev"
                   label = "Node: " + str(hostIdx) + " " + device[devIdx]
-                  colorIdx = devIdx % len(color) 
+                  colorIdx = (devIdx * numNodes + hostIdx) % len(color) 
                   add_scatter(blkSize, data[idx], color[colorIdx], marker[hostIdx], tag, label)
                    
                   #CASE 4: Each socket, each pattern, both direction, all host mems, all src/dest pair
